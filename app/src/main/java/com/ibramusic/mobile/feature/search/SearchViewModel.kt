@@ -167,6 +167,12 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    fun removeDownload(trackId: String) {
+        viewModelScope.launch {
+            downloadRepository.removeDownload(trackId)
+        }
+    }
+
     fun selectCategory(category: SearchCategory) {
         _uiState.value = _uiState.value.copy(selectedCategory = category)
     }

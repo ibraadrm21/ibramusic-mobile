@@ -186,6 +186,12 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
+    fun removeDownload(trackId: String) {
+        viewModelScope.launch {
+            downloadRepository.removeDownload(trackId)
+        }
+    }
+
     fun addTrackToPlaylist(playlistId: String, track: Track) {
         viewModelScope.launch {
             addTrackToPlaylistUseCase(playlistId, track)

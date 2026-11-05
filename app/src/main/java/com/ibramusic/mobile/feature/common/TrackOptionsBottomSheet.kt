@@ -91,6 +91,7 @@ fun TrackOptionsBottomSheet(
     onSetSleepTimer: (() -> Unit)? = null,
     isDownloaded: Boolean = false,
     onDownloadTrack: (() -> Unit)? = null,
+    onDeleteDownload: (() -> Unit)? = null,
     onOpenQueue: (() -> Unit)? = null,
     onGoToArtist: ((artistName: String, artistId: String?) -> Unit)? = null,
     onGoToAlbum: ((albumTitle: String, artistName: String, albumId: String?) -> Unit)? = null
@@ -215,15 +216,27 @@ fun TrackOptionsBottomSheet(
                 )
 
                 // Offline download action
-                ActionRow(
-                    icon = if (isDownloaded) Icons.Rounded.Delete else Icons.Rounded.Download,
-                    title = if (isDownloaded) "Eliminar Descarga" else "Descargar Offline",
-                    iconTint = if (isDownloaded) AccentRose else TextSecondary,
-                    onClick = {
-                        onDismiss()
-                        onDownloadTrack?.invoke()
-                    }
-                )
+                if (isDownloaded) {
+                    ActionRow(
+                        icon = Icons.Rounded.Delete,
+                        title = "Eliminar descarga del dispositivo",
+                        iconTint = AccentRose,
+                        onClick = {
+                            onDismiss()
+                            onDeleteDownload?.invoke() ?: onDownloadTrack?.invoke()
+                        }
+                    )
+                } else {
+                    ActionRow(
+                        icon = Icons.Rounded.Download,
+                        title = "Descargar en dispositivo",
+                        iconTint = TextSecondary,
+                        onClick = {
+                            onDismiss()
+                            onDownloadTrack?.invoke()
+                        }
+                    )
+                }
 
                 // Share link action
                 ActionRow(

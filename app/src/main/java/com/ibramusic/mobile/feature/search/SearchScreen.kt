@@ -445,9 +445,11 @@ fun SearchScreen(
 
         // Track Context Menu Bottom Sheet
         selectedTrackForMenu?.let { track ->
+            val isDownloaded = track.availableOffline || (activeDownloads[track.id] ?: 0) == 100
             TrackOptionsBottomSheet(
                 track = track,
                 playlists = playlists,
+                isDownloaded = isDownloaded,
                 onDismiss = { selectedTrackForMenu = null },
                 onPlayNext = { viewModel.playNext(track) },
                 onAddToQueue = { viewModel.addToQueue(track) },
@@ -462,6 +464,9 @@ fun SearchScreen(
                 },
                 onDownloadTrack = {
                     viewModel.downloadTrack(track)
+                },
+                onDeleteDownload = {
+                    viewModel.removeDownload(track.id)
                 },
                 onGoToArtist = onGoToArtist,
                 onGoToAlbum = onGoToAlbum

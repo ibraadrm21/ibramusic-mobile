@@ -6,8 +6,16 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import coil.Coil
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import java.io.File
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
@@ -64,6 +72,9 @@ class IbraMusicPlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var currentArtworkBitmap: Bitmap? = null
+    private var currentArtworkTrackId: String? = null
+    private var imageLoadingJob: kotlinx.coroutines.Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -321,9 +332,87 @@ class IbraMusicPlaybackService : MediaSessionService() {
         return mediaSession
     }
 
+    private fun updateArtworkForTrack(track: Track?) {
+        if (track == null) {
+            currentArtworkBitmap = null
+            currentArtworkTrackId = null
+            imageLoadingJob?.cancel()
+            return
+        }
+        if (track.id == currentArtworkTrackId && currentArtworkBitmap != null) {
+            return
+        }
+        currentArtworkTrackId = track.id
+        imageLoadingJob?.cancel()
+
+        // 1. Try local downloaded thumbnail file synchronously
+        val localThumbFile = resolveLocalArtworkFile(track)
+        if (localThumbFile != null && localThumbFile.exists()) {
+            try {
+                val decoded = BitmapFactory.decodeFile(localThumbFile.absolutePath)
+                if (decoded != null) {
+                    currentArtworkBitmap = decoded
+                    return
+                }
+            } catch (e: Exception) {
+                // Fall back to async load
+            }
+        }
+
+        // 2. Fetch remote image asynchronously via Coil
+        val artUrl = track.artworkUrl ?: track.album?.artworkUrl
+        if (!artUrl.isNullOrEmpty()) {
+            imageLoadingJob = serviceScope.launch(Dispatchers.IO) {
+                try {
+                    val request = ImageRequest.Builder(this@IbraMusicPlaybackService)
+                        .data(artUrl)
+                        .allowHardware(false)
+                        .build()
+                    val result = Coil.imageLoader(this@IbraMusicPlaybackService).execute(request)
+                    if (result is SuccessResult) {
+                        val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
+                        if (bitmap != null && currentArtworkTrackId == track.id) {
+                            currentArtworkBitmap = bitmap
+                            val notification = buildNotification(playerWrapper.playbackState.value)
+                            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                            notificationManager.notify(Constants.NOTIFICATION_ID, notification)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore image load failure
+                }
+            }
+        } else {
+            currentArtworkBitmap = null
+        }
+    }
+
+    private fun resolveLocalArtworkFile(track: Track): File? {
+        val raw = track.artworkUrl ?: track.album?.artworkUrl
+        if (raw != null) {
+            if (raw.startsWith("file:")) {
+                val path = Uri.parse(raw).path
+                if (path != null) {
+                    val file = File(path)
+                    if (file.exists()) return file
+                }
+            } else if (raw.startsWith("/")) {
+                val file = File(raw)
+                if (file.exists()) return file
+            }
+        }
+        val defaultThumb = File(filesDir, "downloads/${track.id}.jpg")
+        if (defaultThumb.exists()) {
+            return defaultThumb
+        }
+        return null
+    }
+
     private fun buildNotification(state: PlaybackState): Notification {
         val currentTrack = state.currentTrack
         val isPlaying = state.isPlaying
+
+        updateArtworkForTrack(currentTrack)
 
         val prevIntent = PendingIntent.getService(
             this, 10,
@@ -361,6 +450,10 @@ class IbraMusicPlaybackService : MediaSessionService() {
                 playPauseIntent
             )
             .addAction(R.drawable.ic_notification_skip_next, "Next", nextIntent)
+
+        currentArtworkBitmap?.let {
+            builder.setLargeIcon(it)
+        }
 
         mediaSession?.let { session ->
             builder.setStyle(

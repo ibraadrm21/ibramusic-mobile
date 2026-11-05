@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -27,6 +28,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DownloadDone
@@ -70,6 +72,7 @@ import com.ibramusic.mobile.core.designsystem.ChipContainer
 import com.ibramusic.mobile.core.designsystem.DarkCard
 import com.ibramusic.mobile.core.designsystem.DarkGlassBorder
 import com.ibramusic.mobile.core.designsystem.GlassCard
+import com.ibramusic.mobile.core.designsystem.LiquidPill
 import com.ibramusic.mobile.core.designsystem.NoirBlack
 import com.ibramusic.mobile.core.designsystem.TextPrimary
 import com.ibramusic.mobile.core.designsystem.TextSecondary
@@ -109,322 +112,78 @@ fun LibraryScreen(
     var filterQuery by remember { mutableStateOf("") }
     var selectedTrackForMenu by remember { mutableStateOf<Track?>(null) }
 
+    val subtitleText = if (isOfflineMode) {
+        when (selectedOfflineTab) {
+            LibraryOfflineTab.DOWNLOADS -> "${downloadedTracks.size} canciones descargadas"
+            LibraryOfflineTab.OFFLINE_PLAYLISTS -> "${offlinePlaylists.size} playlists offline"
+        }
+    } else {
+        when (selectedNormalTab) {
+            LibraryNormalTab.PLAYLISTS -> "${playlists.size} playlists"
+            LibraryNormalTab.ARTISTS -> "${followedArtists.size} artistas seguidos"
+            LibraryNormalTab.ALBUMS -> "${savedAlbums.size} álbumes guardados"
+        }
+    }
+
+    val showSearch = if (isOfflineMode) {
+        (selectedOfflineTab == LibraryOfflineTab.DOWNLOADS && downloadedTracks.isNotEmpty()) ||
+                (selectedOfflineTab == LibraryOfflineTab.OFFLINE_PLAYLISTS && offlinePlaylists.isNotEmpty())
+    } else {
+        (selectedNormalTab == LibraryNormalTab.PLAYLISTS && playlists.isNotEmpty()) ||
+                (selectedNormalTab == LibraryNormalTab.ARTISTS && followedArtists.isNotEmpty()) ||
+                (selectedNormalTab == LibraryNormalTab.ALBUMS && savedAlbums.isNotEmpty())
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(NoirBlack)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Offline Mode Alert Banner (if offline)
-            if (isOfflineMode) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0x22F59E0B))
-                        .border(1.dp, Color(0x66F59E0B), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.CloudOff,
-                            contentDescription = null,
-                            tint = Color(0xFFF59E0B),
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "Modo Offline Activo",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF59E0B)
-                                )
-                            )
-                            Text(
-                                text = "Mostrando canciones y playlists disponibles en este dispositivo",
-                                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            // Top Header
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Pinned Ultra-Compact Category Pills (only 36dp!)
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = if (isOfflineMode) "Biblioteca Offline" else "Tu Biblioteca",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = TextPrimary,
-                            letterSpacing = (-0.5).sp
-                        )
+                if (isOfflineMode) {
+                    LiquidPill(
+                        text = "Descargas",
+                        isSelected = selectedOfflineTab == LibraryOfflineTab.DOWNLOADS,
+                        count = downloadedTracks.size,
+                        onClick = { viewModel.selectOfflineTab(LibraryOfflineTab.DOWNLOADS) }
                     )
-                    val subtitleText = if (isOfflineMode) {
-                        when (selectedOfflineTab) {
-                            LibraryOfflineTab.DOWNLOADS -> "${downloadedTracks.size} canciones descargadas"
-                            LibraryOfflineTab.OFFLINE_PLAYLISTS -> "${offlinePlaylists.size} playlists offline"
-                        }
-                    } else {
-                        when (selectedNormalTab) {
-                            LibraryNormalTab.PLAYLISTS -> "${playlists.size} playlists"
-                            LibraryNormalTab.ARTISTS -> "${followedArtists.size} artistas seguidos"
-                            LibraryNormalTab.ALBUMS -> "${savedAlbums.size} álbumes guardados"
-                        }
-                    }
-                    Text(
-                        text = subtitleText,
-                        style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                    LiquidPill(
+                        text = "Playlists offline",
+                        isSelected = selectedOfflineTab == LibraryOfflineTab.OFFLINE_PLAYLISTS,
+                        count = offlinePlaylists.size,
+                        onClick = { viewModel.selectOfflineTab(LibraryOfflineTab.OFFLINE_PLAYLISTS) }
                     )
-                }
-
-                // Header Action Buttons
-                if (!isOfflineMode && selectedNormalTab == LibraryNormalTab.PLAYLISTS) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.White)
-                                .clickable { onCreatePlaylistClick() }
-                                .padding(horizontal = 14.dp, vertical = 7.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Add,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = "Crear",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black
-                                    )
-                                )
-                            }
-                        }
-                    }
-                } else if (isOfflineMode && selectedOfflineTab == LibraryOfflineTab.DOWNLOADS && downloadedTracks.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .clickable {
-                                viewModel.playAll(downloadedTracks)
-                                onTrackSelected(downloadedTracks.first())
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = "Reproducir todo",
-                            tint = Color.Black,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Tabs Row
-            if (isOfflineMode) {
-                TabRow(
-                    selectedTabIndex = selectedOfflineTab.ordinal,
-                    containerColor = NoirBlack,
-                    contentColor = TextPrimary,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedOfflineTab.ordinal]),
-                            color = Color.White
-                        )
-                    },
-                    divider = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(DarkGlassBorder)
-                        )
-                    }
-                ) {
-                    Tab(
-                        selected = selectedOfflineTab == LibraryOfflineTab.DOWNLOADS,
-                        onClick = { viewModel.selectOfflineTab(LibraryOfflineTab.DOWNLOADS) },
-                        text = {
-                            Text(
-                                "Descargas (${downloadedTracks.size})",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (selectedOfflineTab == LibraryOfflineTab.DOWNLOADS) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedOfflineTab == LibraryOfflineTab.DOWNLOADS) TextPrimary else TextSecondary
-                                )
-                            )
-                        }
+                } else {
+                    LiquidPill(
+                        text = "Playlists",
+                        isSelected = selectedNormalTab == LibraryNormalTab.PLAYLISTS,
+                        count = playlists.size,
+                        onClick = { viewModel.selectNormalTab(LibraryNormalTab.PLAYLISTS) }
                     )
-                    Tab(
-                        selected = selectedOfflineTab == LibraryOfflineTab.OFFLINE_PLAYLISTS,
-                        onClick = { viewModel.selectOfflineTab(LibraryOfflineTab.OFFLINE_PLAYLISTS) },
-                        text = {
-                            Text(
-                                "Playlists offline (${offlinePlaylists.size})",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (selectedOfflineTab == LibraryOfflineTab.OFFLINE_PLAYLISTS) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedOfflineTab == LibraryOfflineTab.OFFLINE_PLAYLISTS) TextPrimary else TextSecondary
-                                )
-                            )
-                        }
+                    LiquidPill(
+                        text = "Artistas",
+                        isSelected = selectedNormalTab == LibraryNormalTab.ARTISTS,
+                        count = followedArtists.size,
+                        onClick = { viewModel.selectNormalTab(LibraryNormalTab.ARTISTS) }
                     )
-                }
-            } else {
-                TabRow(
-                    selectedTabIndex = selectedNormalTab.ordinal,
-                    containerColor = NoirBlack,
-                    contentColor = TextPrimary,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedNormalTab.ordinal]),
-                            color = Color.White
-                        )
-                    },
-                    divider = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(DarkGlassBorder)
-                        )
-                    }
-                ) {
-                    Tab(
-                        selected = selectedNormalTab == LibraryNormalTab.PLAYLISTS,
-                        onClick = { viewModel.selectNormalTab(LibraryNormalTab.PLAYLISTS) },
-                        text = {
-                            Text(
-                                "Playlists (${playlists.size})",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (selectedNormalTab == LibraryNormalTab.PLAYLISTS) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedNormalTab == LibraryNormalTab.PLAYLISTS) TextPrimary else TextSecondary
-                                )
-                            )
-                        }
-                    )
-                    Tab(
-                        selected = selectedNormalTab == LibraryNormalTab.ARTISTS,
-                        onClick = { viewModel.selectNormalTab(LibraryNormalTab.ARTISTS) },
-                        text = {
-                            Text(
-                                "Artistas (${followedArtists.size})",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (selectedNormalTab == LibraryNormalTab.ARTISTS) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedNormalTab == LibraryNormalTab.ARTISTS) TextPrimary else TextSecondary
-                                )
-                            )
-                        }
-                    )
-                    Tab(
-                        selected = selectedNormalTab == LibraryNormalTab.ALBUMS,
-                        onClick = { viewModel.selectNormalTab(LibraryNormalTab.ALBUMS) },
-                        text = {
-                            Text(
-                                "Álbumes (${savedAlbums.size})",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (selectedNormalTab == LibraryNormalTab.ALBUMS) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedNormalTab == LibraryNormalTab.ALBUMS) TextPrimary else TextSecondary
-                                )
-                            )
-                        }
+                    LiquidPill(
+                        text = "Álbumes",
+                        isSelected = selectedNormalTab == LibraryNormalTab.ALBUMS,
+                        count = savedAlbums.size,
+                        onClick = { viewModel.selectNormalTab(LibraryNormalTab.ALBUMS) }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Search Filter Bar (vertically centered, completely fix placeholder clipping)
-            val showSearch = if (isOfflineMode) {
-                (selectedOfflineTab == LibraryOfflineTab.DOWNLOADS && downloadedTracks.isNotEmpty()) ||
-                        (selectedOfflineTab == LibraryOfflineTab.OFFLINE_PLAYLISTS && offlinePlaylists.isNotEmpty())
-            } else {
-                (selectedNormalTab == LibraryNormalTab.PLAYLISTS && playlists.isNotEmpty()) ||
-                        (selectedNormalTab == LibraryNormalTab.ARTISTS && followedArtists.isNotEmpty()) ||
-                        (selectedNormalTab == LibraryNormalTab.ALBUMS && savedAlbums.isNotEmpty())
-            }
-
-            if (showSearch) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(ChipContainer)
-                        .border(1.dp, DarkGlassBorder, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = null,
-                            tint = TextTertiary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        BasicTextField(
-                            value = filterQuery,
-                            onValueChange = { filterQuery = it },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = TextPrimary,
-                                fontSize = 14.sp
-                            ),
-                            cursorBrush = SolidColor(Color.White),
-                            modifier = Modifier.weight(1f),
-                            decorationBox = { innerTextField ->
-                                Box(
-                                    contentAlignment = Alignment.CenterStart,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    if (filterQuery.isEmpty()) {
-                                        Text(
-                                            text = "Filtrar en biblioteca...",
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                color = TextTertiary,
-                                                fontSize = 14.sp
-                                            )
-                                        )
-                                    }
-                                    innerTextField()
-                                }
-                            }
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            // Body Content
+            // Scrollable Content Area: Title & Search bar scroll off naturally!
             if (isOfflineMode) {
                 // OFFLINE CONTENT
                 when (selectedOfflineTab) {
@@ -438,16 +197,48 @@ fun LibraryScreen(
                         }
 
                         if (downloadedTracks.isEmpty()) {
-                            EmptyLibraryView(
-                                icon = Icons.Rounded.CloudOff,
-                                title = "No hay canciones descargadas",
-                                subtitle = "Descarga canciones mientras estés online para escucharlas sin internet."
-                            )
+                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                LibraryTopHeader(
+                                    isOfflineMode = true,
+                                    subtitleText = subtitleText,
+                                    canCreatePlaylist = false,
+                                    canPlayAll = false,
+                                    onCreatePlaylistClick = onCreatePlaylistClick,
+                                    onPlayAllClick = {}
+                                )
+                                EmptyLibraryView(
+                                    icon = Icons.Rounded.CloudOff,
+                                    title = "No hay canciones descargadas",
+                                    subtitle = "Descarga canciones mientras estés online para escucharlas sin internet."
+                                )
+                            }
                         } else {
                             LazyColumn(
-                                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                item {
+                                    LibraryTopHeader(
+                                        isOfflineMode = true,
+                                        subtitleText = subtitleText,
+                                        canCreatePlaylist = false,
+                                        canPlayAll = downloadedTracks.isNotEmpty(),
+                                        onCreatePlaylistClick = onCreatePlaylistClick,
+                                        onPlayAllClick = {
+                                            viewModel.playAll(downloadedTracks)
+                                            onTrackSelected(downloadedTracks.first())
+                                        }
+                                    )
+                                }
+                                if (showSearch) {
+                                    item {
+                                        LibrarySearchBar(
+                                            query = filterQuery,
+                                            onQueryChange = { filterQuery = it }
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                }
                                 items(filteredTracks, key = { it.id }) { track ->
                                     SwipeToQueueContainer(
                                         onAddToQueue = { viewModel.addToQueue(track) }
@@ -473,18 +264,46 @@ fun LibraryScreen(
                         }
 
                         if (offlinePlaylists.isEmpty()) {
-                            EmptyLibraryView(
-                                icon = Icons.Rounded.QueueMusic,
-                                title = "No hay playlists offline",
-                                subtitle = "Las playlists que contengan canciones descargadas aparecerán aquí."
-                            )
+                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                LibraryTopHeader(
+                                    isOfflineMode = true,
+                                    subtitleText = subtitleText,
+                                    canCreatePlaylist = false,
+                                    canPlayAll = false,
+                                    onCreatePlaylistClick = onCreatePlaylistClick,
+                                    onPlayAllClick = {}
+                                )
+                                EmptyLibraryView(
+                                    icon = Icons.Rounded.QueueMusic,
+                                    title = "No hay playlists offline",
+                                    subtitle = "Las playlists que contengan canciones descargadas aparecerán aquí."
+                                )
+                            }
                         } else {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    LibraryTopHeader(
+                                        isOfflineMode = true,
+                                        subtitleText = subtitleText,
+                                        canCreatePlaylist = false,
+                                        canPlayAll = false,
+                                        onCreatePlaylistClick = onCreatePlaylistClick,
+                                        onPlayAllClick = {}
+                                    )
+                                }
+                                if (showSearch) {
+                                    item(span = { GridItemSpan(maxLineSpan) }) {
+                                        LibrarySearchBar(
+                                            query = filterQuery,
+                                            onQueryChange = { filterQuery = it }
+                                        )
+                                    }
+                                }
                                 items(filteredOfflinePlaylists, key = { it.id }) { playlist ->
                                     OfflinePlaylistCard(
                                         playlist = playlist,
@@ -505,18 +324,46 @@ fun LibraryScreen(
                         }
 
                         if (playlists.isEmpty()) {
-                            EmptyLibraryView(
-                                icon = Icons.Rounded.QueueMusic,
-                                title = "No tienes playlists aún",
-                                subtitle = "Crea tu primera playlist o importa una de Spotify."
-                            )
+                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                LibraryTopHeader(
+                                    isOfflineMode = false,
+                                    subtitleText = subtitleText,
+                                    canCreatePlaylist = true,
+                                    canPlayAll = false,
+                                    onCreatePlaylistClick = onCreatePlaylistClick,
+                                    onPlayAllClick = {}
+                                )
+                                EmptyLibraryView(
+                                    icon = Icons.Rounded.QueueMusic,
+                                    title = "No tienes playlists aún",
+                                    subtitle = "Crea tu primera playlist o importa una de Spotify."
+                                )
+                            }
                         } else {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    LibraryTopHeader(
+                                        isOfflineMode = false,
+                                        subtitleText = subtitleText,
+                                        canCreatePlaylist = true,
+                                        canPlayAll = false,
+                                        onCreatePlaylistClick = onCreatePlaylistClick,
+                                        onPlayAllClick = {}
+                                    )
+                                }
+                                if (showSearch) {
+                                    item(span = { GridItemSpan(maxLineSpan) }) {
+                                        LibrarySearchBar(
+                                            query = filterQuery,
+                                            onQueryChange = { filterQuery = it }
+                                        )
+                                    }
+                                }
                                 items(filteredPlaylists, key = { it.id }) { playlist ->
                                     CleanPlaylistCard(
                                         playlist = playlist,
@@ -534,18 +381,46 @@ fun LibraryScreen(
                         }
 
                         if (followedArtists.isEmpty()) {
-                            EmptyLibraryView(
-                                icon = Icons.Rounded.Person,
-                                title = "No sigues a ningún artista",
-                                subtitle = "Busca a tus artistas favoritos y pulsa 'Seguir' para tenerlos a mano."
-                            )
+                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                LibraryTopHeader(
+                                    isOfflineMode = false,
+                                    subtitleText = subtitleText,
+                                    canCreatePlaylist = false,
+                                    canPlayAll = false,
+                                    onCreatePlaylistClick = onCreatePlaylistClick,
+                                    onPlayAllClick = {}
+                                )
+                                EmptyLibraryView(
+                                    icon = Icons.Rounded.Person,
+                                    title = "No sigues a ningún artista",
+                                    subtitle = "Busca a tus artistas favoritos y pulsa 'Seguir' para tenerlos a mano."
+                                )
+                            }
                         } else {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    LibraryTopHeader(
+                                        isOfflineMode = false,
+                                        subtitleText = subtitleText,
+                                        canCreatePlaylist = false,
+                                        canPlayAll = false,
+                                        onCreatePlaylistClick = onCreatePlaylistClick,
+                                        onPlayAllClick = {}
+                                    )
+                                }
+                                if (showSearch) {
+                                    item(span = { GridItemSpan(maxLineSpan) }) {
+                                        LibrarySearchBar(
+                                            query = filterQuery,
+                                            onQueryChange = { filterQuery = it }
+                                        )
+                                    }
+                                }
                                 items(filteredArtists, key = { it.id }) { artist ->
                                     LibraryArtistCard(
                                         artist = artist,
@@ -566,18 +441,46 @@ fun LibraryScreen(
                         }
 
                         if (savedAlbums.isEmpty()) {
-                            EmptyLibraryView(
-                                icon = Icons.Rounded.Album,
-                                title = "No tienes álbumes guardados",
-                                subtitle = "Explora álbumes y pulsa 'Guardar' para verlos aquí."
-                            )
+                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                                LibraryTopHeader(
+                                    isOfflineMode = false,
+                                    subtitleText = subtitleText,
+                                    canCreatePlaylist = false,
+                                    canPlayAll = false,
+                                    onCreatePlaylistClick = onCreatePlaylistClick,
+                                    onPlayAllClick = {}
+                                )
+                                EmptyLibraryView(
+                                    icon = Icons.Rounded.Album,
+                                    title = "No tienes álbumes guardados",
+                                    subtitle = "Explora álbumes y pulsa 'Guardar' para verlos aquí."
+                                )
+                            }
                         } else {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    LibraryTopHeader(
+                                        isOfflineMode = false,
+                                        subtitleText = subtitleText,
+                                        canCreatePlaylist = false,
+                                        canPlayAll = false,
+                                        onCreatePlaylistClick = onCreatePlaylistClick,
+                                        onPlayAllClick = {}
+                                    )
+                                }
+                                if (showSearch) {
+                                    item(span = { GridItemSpan(maxLineSpan) }) {
+                                        LibrarySearchBar(
+                                            query = filterQuery,
+                                            onQueryChange = { filterQuery = it }
+                                        )
+                                    }
+                                }
                                 items(filteredAlbums, key = { it.id }) { album ->
                                     LibraryAlbumCard(
                                         album = album,
@@ -593,9 +496,11 @@ fun LibraryScreen(
 
         // Track Context Menu Bottom Sheet
         selectedTrackForMenu?.let { track ->
+            val isDownloaded = track.availableOffline || (activeDownloads[track.id] ?: 0) == 100 || downloadedTracks.any { it.id == track.id }
             TrackOptionsBottomSheet(
                 track = track,
                 playlists = playlists,
+                isDownloaded = isDownloaded,
                 onDismiss = { selectedTrackForMenu = null },
                 onPlayNext = { viewModel.playNext(track) },
                 onAddToQueue = { viewModel.addToQueue(track) },
@@ -611,9 +516,160 @@ fun LibraryScreen(
                 onDownloadTrack = {
                     viewModel.downloadTrack(track)
                 },
+                onDeleteDownload = {
+                    viewModel.removeDownload(track.id)
+                },
                 onGoToArtist = onGoToArtist,
                 onGoToAlbum = onGoToAlbum
             )
+        }
+    }
+}
+
+@Composable
+private fun LibraryTopHeader(
+    isOfflineMode: Boolean,
+    subtitleText: String,
+    canCreatePlaylist: Boolean,
+    canPlayAll: Boolean,
+    onCreatePlaylistClick: () -> Unit,
+    onPlayAllClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = if (isOfflineMode) "Biblioteca Offline" else "Tu Biblioteca",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    fontSize = 20.sp,
+                    letterSpacing = (-0.5).sp
+                )
+            )
+            Text(
+                text = subtitleText,
+                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary, fontSize = 12.sp)
+            )
+        }
+
+        if (canCreatePlaylist) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White)
+                    .clickable { onCreatePlaylistClick() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = "Crear",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    )
+                }
+            }
+        } else if (canPlayAll) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .clickable { onPlayAllClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = "Reproducir todo",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibrarySearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0x14FFFFFF))
+            .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Search,
+                contentDescription = null,
+                tint = Color(0xFF9CA3AF),
+                modifier = Modifier.size(16.dp)
+            )
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.White,
+                    fontSize = 13.sp
+                ),
+                cursorBrush = SolidColor(Color.White),
+                modifier = Modifier.weight(1f),
+                decorationBox = { innerTextField ->
+                    Box(
+                        contentAlignment = Alignment.CenterStart,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = "Buscar en biblioteca...",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF6B7280),
+                                    fontSize = 13.sp
+                                )
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (query.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Limpiar",
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { onQueryChange("") }
+                )
+            }
         }
     }
 }

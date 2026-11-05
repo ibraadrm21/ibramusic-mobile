@@ -3,6 +3,7 @@ package com.ibramusic.mobile.data.repository
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -90,14 +91,22 @@ class DownloadRepositoryImpl @Inject constructor(
                             val trackId = file.name.removeSuffix(".m4a")
                             val existing = trackDao.getTrackById(trackId)
                             val metaFile = File(downloadsDir, "$trackId.json")
+                            val thumbFile = File(downloadsDir, "$trackId.jpg")
+                            val localArtworkUri = if (thumbFile.exists()) Uri.fromFile(thumbFile).toString() else null
+
                             if (existing != null) {
-                                if (!existing.isDownloaded || existing.localFilePath != file.absolutePath) {
-                                    trackDao.insertOrUpdate(existing.copy(isDownloaded = true, localFilePath = file.absolutePath))
+                                val needsUpdate = !existing.isDownloaded || 
+                                    existing.localFilePath != file.absolutePath ||
+                                    (localArtworkUri != null && (existing.artworkUrl == null || existing.artworkUrl.startsWith("file:/data/")))
+                                if (needsUpdate) {
+                                    val updatedArt = localArtworkUri ?: existing.artworkUrl
+                                    trackDao.insertOrUpdate(existing.copy(isDownloaded = true, localFilePath = file.absolutePath, artworkUrl = updatedArt))
                                     Log.d(TAG, "Restored offline track in Room: $trackId -> ${file.absolutePath}")
                                 }
                             } else if (metaFile.exists()) {
                                 try {
                                     val metaJson = JSONObject(metaFile.readText())
+                                    val art = localArtworkUri ?: metaJson.optString("artworkUrl").takeIf { it.isNotBlank() }
                                     val restored = TrackEntity(
                                         id = trackId,
                                         providerId = metaJson.optString("providerId", "download"),
@@ -108,7 +117,7 @@ class DownloadRepositoryImpl @Inject constructor(
                                         albumTitle = metaJson.optString("albumTitle").takeIf { it.isNotBlank() },
                                         albumId = null,
                                         durationMs = metaJson.optLong("durationMs", 0L),
-                                        artworkUrl = metaJson.optString("artworkUrl").takeIf { it.isNotBlank() },
+                                        artworkUrl = art,
                                         isExplicit = metaJson.optBoolean("isExplicit", false),
                                         isLiked = false,
                                         isDownloaded = true,
@@ -335,7 +344,7 @@ class DownloadRepositoryImpl @Inject constructor(
             }
 
             // Step 4: Register in Room DB
-            val localArtwork = if (finalThumbFile.exists()) finalThumbFile.toURI().toString() else track.artworkUrl
+            val localArtwork = if (finalThumbFile.exists()) Uri.fromFile(finalThumbFile).toString() else track.artworkUrl
             val entity = TrackEntity.fromDomain(
                 track = track.copy(
                     artworkUrl = localArtwork,

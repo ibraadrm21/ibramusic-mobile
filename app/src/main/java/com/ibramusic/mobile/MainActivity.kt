@@ -34,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Public
@@ -134,6 +135,7 @@ class MainActivity : ComponentActivity() {
                 val userAvatar by settingsViewModel.userAvatar.collectAsState()
                 val userName by settingsViewModel.userName.collectAsState()
                 val isGuest by settingsViewModel.isGuest.collectAsState()
+                val isOfflineMode by settingsViewModel.isOfflineMode.collectAsState()
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
@@ -201,11 +203,37 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // Top Right Action Icons: Search + Avatar + Listen Together
+                                // Top Right Action Icons: Offline indicator + Search + Avatar
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    // Offline Mode Indicator (Orange cloud with cross in header)
+                                    if (isOfflineMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(Color(0x22F59E0B))
+                                                .border(1.dp, Color(0x66F59E0B), RoundedCornerShape(12.dp))
+                                                .clickable {
+                                                    navController.navigate(Screen.Settings.route) {
+                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CloudOff,
+                                                contentDescription = "Modo Offline Activo",
+                                                tint = Color(0xFFF59E0B),
+                                                modifier = Modifier.size(19.dp)
+                                            )
+                                        }
+                                    }
+
                                     // Search Icon Button (36x36 rounded-xl bg-white/5)
                                     Box(
                                         modifier = Modifier

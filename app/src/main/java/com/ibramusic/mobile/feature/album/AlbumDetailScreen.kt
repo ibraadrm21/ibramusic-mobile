@@ -491,6 +491,7 @@ fun AlbumDetailScreen(
                 onCreatePlaylistAndAdd = { name -> viewModel.createPlaylistAndAdd(name, track) },
                 isDownloaded = track.availableOffline,
                 onDownloadTrack = { viewModel.downloadTrack(track) },
+                onDeleteDownload = { viewModel.removeDownload(track.id) },
                 onGoToArtist = onTrackOptionsGoToArtist,
                 onGoToAlbum = onTrackOptionsGoToAlbum
             )

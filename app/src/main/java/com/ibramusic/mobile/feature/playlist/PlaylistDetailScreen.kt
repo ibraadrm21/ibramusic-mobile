@@ -102,6 +102,7 @@ fun PlaylistDetailScreen(
         ?: tracks.firstOrNull()?.artworkUrl
 
     var selectedTrackForMenu by remember { mutableStateOf<Track?>(null) }
+    var trackPendingDeleteFromPlaylist by remember { mutableStateOf<Track?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var editName by remember(playlist?.name) { mutableStateOf(playlist?.name ?: "") }
@@ -509,10 +510,12 @@ fun PlaylistDetailScreen(
 
         // Track Options Bottom Sheet
         selectedTrackForMenu?.let { track ->
+            val isDownloaded = track.availableOffline || (activeDownloads[track.id] ?: 0) == 100
             TrackOptionsBottomSheet(
                 track = track,
                 playlists = playlists,
                 isInPlaylist = true,
+                isDownloaded = isDownloaded,
                 onDismiss = { selectedTrackForMenu = null },
                 onPlayNext = { viewModel.playNext(track) },
                 onAddToQueue = { viewModel.addToQueue(track) },
@@ -526,13 +529,77 @@ fun PlaylistDetailScreen(
                     }
                 },
                 onRemoveFromPlaylist = {
-                    viewModel.removeTrackFromPlaylist(playlistId, track.id)
+                    if (isDownloaded) {
+                        trackPendingDeleteFromPlaylist = track
+                    } else {
+                        viewModel.removeTrackFromPlaylist(playlistId, track.id)
+                    }
                 },
                 onDownloadTrack = {
                     viewModel.downloadTrack(track)
                 },
+                onDeleteDownload = {
+                    viewModel.deleteDownload(track.id)
+                },
                 onGoToArtist = onGoToArtist,
                 onGoToAlbum = onGoToAlbum
+            )
+        }
+
+        // Prompt to delete downloaded file when removing from playlist
+        if (trackPendingDeleteFromPlaylist != null) {
+            val trackToDelete = trackPendingDeleteFromPlaylist!!
+            AlertDialog(
+                onDismissRequest = { trackPendingDeleteFromPlaylist = null },
+                containerColor = Color(0xFF18181B),
+                title = {
+                    Text(
+                        text = "Eliminar canción",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                },
+                text = {
+                    Text(
+                        text = "¿Deseas eliminar también el archivo descargado de tu dispositivo o solo quitarla de la playlist \"${playlist?.name ?: "Playlist"}\"?",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF))
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.removeTrackFromPlaylist(playlistId, trackToDelete.id)
+                            viewModel.deleteDownload(trackToDelete.id)
+                            trackPendingDeleteFromPlaylist = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEF4444),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Eliminar de ambos", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = { trackPendingDeleteFromPlaylist = null }
+                        ) {
+                            Text("Cancelar", color = Color(0xFF9CA3AF))
+                        }
+                        TextButton(
+                            onClick = {
+                                viewModel.removeTrackFromPlaylist(playlistId, trackToDelete.id)
+                                trackPendingDeleteFromPlaylist = null
+                            }
+                        ) {
+                            Text("Solo de la playlist", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             )
         }
         // Edit Playlist Dialog

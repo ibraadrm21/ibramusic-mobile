@@ -89,6 +89,7 @@ import com.ibramusic.mobile.core.designsystem.DarkGlassBorder
 import com.ibramusic.mobile.core.designsystem.TextPrimary
 import com.ibramusic.mobile.core.designsystem.TextSecondary
 import com.ibramusic.mobile.core.designsystem.TextTertiary
+import com.ibramusic.mobile.core.designsystem.ambientCoverGlow
 import com.ibramusic.mobile.core.designsystem.Zinc400
 import com.ibramusic.mobile.core.designsystem.Zinc50
 import com.ibramusic.mobile.core.designsystem.Zinc600
@@ -331,34 +332,46 @@ fun NowPlayingScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.86f)
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(Color(0xFF141414))
-                            .border(1.dp, Color(0x1FFFFFFF), RoundedCornerShape(22.dp))
-                            .pointerInput(Unit) {
-                                detectVerticalDragGestures(
-                                    onDragStart = { coverDragY = 0f },
-                                    onDragEnd = {
-                                        if (coverDragY < -70f) {
-                                            onNavigateToQueue()
-                                        } else if (coverDragY > 90f) {
-                                            onDismiss()
-                                        }
-                                        coverDragY = 0f
-                                    },
-                                    onDragCancel = { coverDragY = 0f },
-                                    onVerticalDrag = { _, dragAmount ->
-                                        coverDragY += dragAmount
-                                    }
-                                )
-                            }
+                            .aspectRatio(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        AsyncImage(
-                            model = currentTrack?.artworkUrl,
-                            contentDescription = currentTrack?.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                        // Ambient Artwork Glow (ArchiveTune / PixelPlayer inspired)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize(0.92f)
+                                .ambientCoverGlow(glowColor = Color(0x35FFFFFF))
                         )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(Color(0xFF141414))
+                                .border(1.dp, Color(0x24FFFFFF), RoundedCornerShape(22.dp))
+                                .pointerInput(Unit) {
+                                    detectVerticalDragGestures(
+                                        onDragStart = { coverDragY = 0f },
+                                        onDragEnd = {
+                                            if (coverDragY < -70f) {
+                                                onNavigateToQueue()
+                                            } else if (coverDragY > 90f) {
+                                                onDismiss()
+                                            }
+                                            coverDragY = 0f
+                                        },
+                                        onDragCancel = { coverDragY = 0f },
+                                        onVerticalDrag = { _, dragAmount ->
+                                            coverDragY += dragAmount
+                                        }
+                                    )
+                                }
+                        ) {
+                            AsyncImage(
+                                model = currentTrack?.artworkUrl,
+                                contentDescription = currentTrack?.title,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -726,10 +739,13 @@ fun NowPlayingScreen(
 
         // Track Options Bottom Sheet
         if (showTrackOptions && currentTrack != null) {
+            val activeDownloads by viewModel.activeDownloads.collectAsState()
+            val isDownloaded = currentTrack.availableOffline || (activeDownloads[currentTrack.id] ?: 0) == 100
             TrackOptionsBottomSheet(
                 track = currentTrack,
                 playlists = playlists,
                 isFavorite = isLiked,
+                isDownloaded = isDownloaded,
                 onDismiss = { showTrackOptions = false },
                 onPlayNext = { viewModel.playNext(currentTrack) },
                 onAddToQueue = { viewModel.addToQueue(currentTrack) },
@@ -744,6 +760,9 @@ fun NowPlayingScreen(
                 },
                 onDownloadTrack = {
                     viewModel.downloadTrack(currentTrack)
+                },
+                onDeleteDownload = {
+                    viewModel.removeDownload(currentTrack.id)
                 },
                 onSetPlaybackSpeed = {
                     showSpeedDialog = true

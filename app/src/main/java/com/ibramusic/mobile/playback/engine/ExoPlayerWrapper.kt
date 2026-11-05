@@ -3,6 +3,7 @@ package com.ibramusic.mobile.playback.engine
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import java.io.File
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -254,12 +255,7 @@ class ExoPlayerWrapper @Inject constructor(
         isStandbyReady = false
 
         val active = activePlayer
-        val metadata = MediaMetadata.Builder()
-            .setTitle(track.title)
-            .setArtist(track.artistName)
-            .setAlbumTitle(track.album?.title)
-            .setArtworkUri(track.artworkUrl?.let { Uri.parse(it) })
-            .build()
+        val metadata = buildMediaMetadata(track)
 
         val mediaItem = MediaItem.Builder()
             .setMediaId(track.id)
@@ -292,12 +288,7 @@ class ExoPlayerWrapper @Inject constructor(
         isStandbyReady = false
 
         val standby = standbyPlayer
-        val metadata = MediaMetadata.Builder()
-            .setTitle(track.title)
-            .setArtist(track.artistName)
-            .setAlbumTitle(track.album?.title)
-            .setArtworkUri(track.artworkUrl?.let { Uri.parse(it) })
-            .build()
+        val metadata = buildMediaMetadata(track)
 
         val mediaItem = MediaItem.Builder()
             .setMediaId(track.id)
@@ -310,6 +301,69 @@ class ExoPlayerWrapper @Inject constructor(
         standby.prepare()
         standby.playWhenReady = false
         Log.d(TAG, "Pre-cued standby deck with upcoming track: ${track.artistName} - ${track.title}")
+    }
+
+    private fun buildMediaMetadata(track: Track): MediaMetadata {
+        val artworkUri = resolveArtworkUri(track)
+        val artworkBytes = resolveArtworkBytes(track)
+
+        return MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artistName)
+            .setAlbumTitle(track.album?.title)
+            .setArtworkUri(artworkUri)
+            .apply {
+                if (artworkBytes != null && artworkBytes.isNotEmpty()) {
+                    setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                }
+            }
+            .build()
+    }
+
+    private fun resolveArtworkUri(track: Track): Uri? {
+        val raw = track.artworkUrl ?: return null
+        return try {
+            if (raw.startsWith("file:")) {
+                val path = Uri.parse(raw).path
+                if (path != null) {
+                    Uri.fromFile(File(path))
+                } else {
+                    Uri.parse(raw)
+                }
+            } else {
+                Uri.parse(raw)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun resolveArtworkBytes(track: Track): ByteArray? {
+        // 1. Check if track has a local file path in artworkUrl
+        val raw = track.artworkUrl
+        if (!raw.isNullOrEmpty() && raw.startsWith("file:")) {
+            try {
+                val path = Uri.parse(raw).path
+                if (path != null) {
+                    val f = File(path)
+                    if (f.exists() && f.length() > 0) {
+                        return f.readBytes()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error reading artwork file: ${e.message}")
+            }
+        }
+        // 2. Check if downloaded thumbnail exists in downloads directory
+        try {
+            val downloadedThumb = File(context.filesDir, "downloads/${track.id}.jpg")
+            if (downloadedThumb.exists() && downloadedThumb.length() > 0) {
+                return downloadedThumb.readBytes()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error reading downloaded thumb: ${e.message}")
+        }
+        return null
     }
 
     /**

@@ -163,9 +163,17 @@ class NowPlayingViewModel @Inject constructor(
         }
     }
 
+    val activeDownloads: StateFlow<Map<String, Int>> = downloadRepository.activeDownloads
+
     fun downloadTrack(track: Track) {
         viewModelScope.launch {
             downloadRepository.downloadTrack(track)
+        }
+    }
+
+    fun removeDownload(trackId: String) {
+        viewModelScope.launch {
+            downloadRepository.removeDownload(trackId)
         }
     }
 }

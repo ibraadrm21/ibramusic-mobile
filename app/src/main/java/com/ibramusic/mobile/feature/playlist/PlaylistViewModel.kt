@@ -169,6 +169,12 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    fun deleteDownload(trackId: String) {
+        viewModelScope.launch {
+            downloadRepository.removeDownload(trackId)
+        }
+    }
+
     fun downloadPlaylist(tracks: List<Track>) {
         viewModelScope.launch {
             tracks.forEach { track ->
