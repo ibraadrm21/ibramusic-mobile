@@ -90,7 +90,9 @@ fun PlaylistDetailScreen(
     modifier: Modifier = Modifier
 ) {
     LaunchedEffect(playlistId) {
-        viewModel.selectPlaylist(playlistId)
+        if (viewModel.selectedPlaylistId.value != playlistId) {
+            viewModel.selectPlaylist(playlistId)
+        }
     }
 
     val playlists by viewModel.playlists.collectAsState()
@@ -98,8 +100,10 @@ fun PlaylistDetailScreen(
     val tracks by viewModel.currentPlaylistTracks.collectAsState()
     val activeDownloads by viewModel.activeDownloads.collectAsState()
 
-    val effectiveCoverUrl = playlist?.coverUrl.takeIf { !it.isNullOrEmpty() }
-        ?: tracks.firstOrNull()?.artworkUrl
+    val effectiveCoverUrl = remember(playlist?.coverUrl, tracks.firstOrNull()?.artworkUrl) {
+        playlist?.coverUrl.takeIf { !it.isNullOrEmpty() }
+            ?: tracks.firstOrNull()?.artworkUrl
+    }
 
     var selectedTrackForMenu by remember { mutableStateOf<Track?>(null) }
     var trackPendingDeleteFromPlaylist by remember { mutableStateOf<Track?>(null) }
@@ -268,7 +272,7 @@ fun PlaylistDetailScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        val downloadedCount = remember(tracks, activeDownloads) {
+                        val downloadedCount = remember(tracks, activeDownloads.size) {
                             tracks.count { it.availableOffline || activeDownloads[it.id] == 100 }
                         }
                         val allDownloaded = tracks.isNotEmpty() && downloadedCount == tracks.size
@@ -385,124 +389,14 @@ fun PlaylistDetailScreen(
                     }
                 } else {
                     itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
-                        SwipeToQueueContainer(
-                            onAddToQueue = { viewModel.addToQueue(track) }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { viewModel.playTrack(track, tracks) }
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${index + 1}",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Zinc400,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    modifier = Modifier.width(24.dp)
-                                )
-
-                                AsyncImage(
-                                    model = track.artworkUrl,
-                                    contentDescription = track.title,
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(DarkCard),
-                                    contentScale = ContentScale.Crop
-                                )
-
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    val dlProgress = activeDownloads[track.id]
-                                    if (dlProgress != null && dlProgress in 1..99) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(bottom = 2.dp)
-                                        ) {
-                                            CircularProgressIndicator(
-                                                progress = { dlProgress / 100f },
-                                                color = BrandEmerald,
-                                                strokeWidth = 2.dp,
-                                                modifier = Modifier.size(10.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = "Descargando $dlProgress%",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = BrandEmerald,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                            )
-                                        }
-                                    } else if (dlProgress == -1) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(bottom = 2.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.ErrorOutline,
-                                                contentDescription = null,
-                                                tint = AccentRose,
-                                                modifier = Modifier.size(11.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(3.dp))
-                                            Text(
-                                                text = "Error al descargar",
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    color = AccentRose,
-                                                    fontSize = 10.sp
-                                                )
-                                            )
-                                        }
-                                    }
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = track.title,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.Medium,
-                                                color = Zinc50
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f, fill = false)
-                                        )
-                                        if (track.availableOffline || dlProgress == 100) {
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Icon(
-                                                imageVector = Icons.Rounded.DownloadDone,
-                                                contentDescription = "Descargada",
-                                                tint = BrandEmerald,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        text = track.artistName,
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Zinc400),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = { selectedTrackForMenu = track },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.MoreVert,
-                                        contentDescription = "Opciones",
-                                        tint = Zinc400,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
+                        PlaylistTrackRow(
+                            index = index + 1,
+                            track = track,
+                            dlProgress = activeDownloads[track.id],
+                            onTrackClick = { viewModel.playTrack(track, tracks) },
+                            onAddToQueue = { viewModel.addToQueue(track) },
+                            onOptionsClick = { selectedTrackForMenu = track }
+                        )
                     }
                 }
             }
@@ -683,4 +577,135 @@ fun PlaylistDetailScreen(
         }
     }
 }
+
+@Composable
+private fun PlaylistTrackRow(
+    index: Int,
+    track: Track,
+    dlProgress: Int?,
+    onTrackClick: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onOptionsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SwipeToQueueContainer(
+        onAddToQueue = onAddToQueue,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onTrackClick)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$index",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Zinc400,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.width(24.dp)
+            )
+
+            AsyncImage(
+                model = track.artworkUrl,
+                contentDescription = track.title,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(DarkCard),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                if (dlProgress != null && dlProgress in 1..99) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            progress = { dlProgress / 100f },
+                            color = BrandEmerald,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Descargando $dlProgress%",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = BrandEmerald,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                } else if (dlProgress == -1) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ErrorOutline,
+                            contentDescription = null,
+                            tint = AccentRose,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Error al descargar",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = AccentRose,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = track.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Zinc50
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (track.availableOffline || dlProgress == 100) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.DownloadDone,
+                            contentDescription = "Descargada",
+                            tint = BrandEmerald,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = track.artistName,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Zinc400),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(
+                onClick = onOptionsClick,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,
+                    contentDescription = "Opciones",
+                    tint = Zinc400,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
 

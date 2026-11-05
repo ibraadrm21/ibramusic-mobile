@@ -9,7 +9,6 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -42,7 +41,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Wraps a track item and allows swiping to the right (Start to End) to quickly add it to the playback queue.
+ * Ultra-performant swipe-to-queue container.
+ * Uses lightweight primitive float state for 60/120fps direct tracking without coroutine allocations during drag.
  * Snaps smoothly back to resting position upon release.
  */
 @Composable
@@ -56,16 +56,14 @@ fun SwipeToQueueContainer(
     val density = LocalDensity.current
     val thresholdPx = with(density) { swipeThresholdDp.dp.toPx() }
 
-    val offsetX = remember { Animatable(0f) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
     var triggeredFeedback by remember { mutableStateOf(false) }
 
     val draggableState = rememberDraggableState { delta ->
-        coroutineScope.launch {
-            val newOffset = (offsetX.value + delta).coerceIn(0f, thresholdPx * 1.6f)
-            offsetX.snapTo(newOffset)
-            if (newOffset >= thresholdPx && !triggeredFeedback) {
-                triggeredFeedback = true
-            }
+        val newOffset = (dragOffset + delta).coerceIn(0f, thresholdPx * 1.5f)
+        dragOffset = newOffset
+        if (newOffset >= thresholdPx && !triggeredFeedback) {
+            triggeredFeedback = true
         }
     }
 
@@ -74,9 +72,9 @@ fun SwipeToQueueContainer(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
     ) {
-        // Background reveal: Emerald Queue action
-        if (offsetX.value > 8f) {
-            val progress = (offsetX.value / thresholdPx).coerceIn(0f, 1f)
+        // Background reveal: Emerald Queue action (only rendered when user is actively swiping)
+        if (dragOffset > 8f) {
+            val progress = (dragOffset / thresholdPx).coerceIn(0f, 1f)
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -108,7 +106,7 @@ fun SwipeToQueueContainer(
                         modifier = Modifier.size(24.dp)
                     )
                     Text(
-                        text = if (offsetX.value >= thresholdPx) "¡Soltar para encolar!" else "Encolar",
+                        text = if (dragOffset >= thresholdPx) "¡Soltar para encolar!" else "Encolar",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelMedium
@@ -121,17 +119,26 @@ fun SwipeToQueueContainer(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .offset { IntOffset(dragOffset.roundToInt(), 0) }
                 .draggable(
                     state = draggableState,
                     orientation = Orientation.Horizontal,
                     onDragStopped = {
                         coroutineScope.launch {
-                            if (offsetX.value >= thresholdPx) {
+                            if (dragOffset >= thresholdPx) {
                                 onAddToQueue()
                             }
                             triggeredFeedback = false
-                            offsetX.animateTo(0f, animationSpec = tween(durationMillis = 220))
+                            val current = dragOffset
+                            if (current > 0f) {
+                                Animatable(current).animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = tween(durationMillis = 200)
+                                ) {
+                                    dragOffset = value
+                                }
+                            }
+                            dragOffset = 0f
                         }
                     }
                 )
@@ -140,4 +147,3 @@ fun SwipeToQueueContainer(
         }
     }
 }
-

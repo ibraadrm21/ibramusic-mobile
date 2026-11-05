@@ -1,5 +1,6 @@
 package com.ibramusic.mobile.feature.playlist
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ibramusic.mobile.domain.model.Playlist
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -38,6 +40,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     getPlaylistsUseCase: GetPlaylistsUseCase,
     private val getPlaylistTracksUseCase: GetPlaylistTracksUseCase,
     private val createPlaylistUseCase: CreatePlaylistUseCase,
@@ -62,7 +65,8 @@ class PlaylistViewModel @Inject constructor(
 
     val activeDownloads: StateFlow<Map<String, Int>> = downloadRepository.activeDownloads
 
-    private val _selectedPlaylistId = MutableStateFlow<String?>(null)
+    private val initialPlaylistId: String? = savedStateHandle.get<String>("playlistId")
+    private val _selectedPlaylistId = MutableStateFlow<String?>(initialPlaylistId)
     val selectedPlaylistId: StateFlow<String?> = _selectedPlaylistId.asStateFlow()
 
     val currentPlaylistTracks: StateFlow<List<Track>> = _selectedPlaylistId
@@ -83,6 +87,7 @@ class PlaylistViewModel @Inject constructor(
         viewModelScope.launch {
             currentPlaylistTracks.collect { tracks ->
                 if (tracks.isNotEmpty()) {
+                    delay(500) // Don't compete with screen transition animation
                     resolver.preResolveList(tracks, limit = 2)
                 }
             }

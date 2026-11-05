@@ -9,7 +9,9 @@ import com.ibramusic.mobile.data.sync.SupabaseSyncManager
 import com.ibramusic.mobile.domain.model.Playlist
 import com.ibramusic.mobile.domain.model.Track
 import com.ibramusic.mobile.domain.repository.PlaylistRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 import javax.inject.Inject
@@ -35,13 +37,13 @@ class PlaylistRepositoryImpl @Inject constructor(
                     createdAt = item.createdAt
                 )
             }
-        }
+        }.flowOn(Dispatchers.Default)
     }
 
     override fun getPlaylistTracks(playlistId: String): Flow<List<Track>> {
         return playlistDao.getPlaylistTracks(playlistId).map { entities ->
             entities.map { it.toDomain() }
-        }
+        }.flowOn(Dispatchers.Default)
     }
 
     override suspend fun createPlaylist(name: String, description: String?, coverUrl: String?): String {
