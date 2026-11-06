@@ -52,6 +52,9 @@ class QueueManager @Inject constructor(
     }
 
     fun peekNextTrack(): Track? {
+        if (repeatMode == RepeatMode.ONE && currentItem != null) {
+            return currentItem?.track
+        }
         if (userQueue.isNotEmpty()) return userQueue.first().track
         if (playlistQueue.isNotEmpty()) return playlistQueue.first().track
         if (repeatMode == RepeatMode.ALL && originalPlaylistQueue.isNotEmpty()) {
@@ -61,7 +64,7 @@ class QueueManager @Inject constructor(
     }
 
     fun hasNextTrack(): Boolean {
-        return userQueue.isNotEmpty() || playlistQueue.isNotEmpty() || (repeatMode != RepeatMode.OFF && originalPlaylistQueue.isNotEmpty())
+        return repeatMode == RepeatMode.ONE || userQueue.isNotEmpty() || playlistQueue.isNotEmpty() || (repeatMode == RepeatMode.ALL && originalPlaylistQueue.isNotEmpty())
     }
 
     fun hasPreviousTrack(): Boolean {
@@ -75,22 +78,24 @@ class QueueManager @Inject constructor(
         val currentTrack = tracks[validIndex]
         currentItem = QueueItem(track = currentTrack)
 
+        // Keep the full playlist context so RepeatMode.ALL loops all tracks from the beginning
+        originalPlaylistQueue.clear()
+        originalPlaylistQueue.addAll(tracks.map { QueueItem(track = it) })
+
         val upcomingContextTracks = if (validIndex + 1 < tracks.size) {
             tracks.subList(validIndex + 1, tracks.size)
         } else {
             emptyList()
         }
 
-        originalPlaylistQueue.clear()
-        originalPlaylistQueue.addAll(upcomingContextTracks.map { QueueItem(track = it) })
-
         playlistQueue.clear()
+        val upcomingItems = upcomingContextTracks.map { QueueItem(track = it) }
         if (isShuffleEnabled) {
-            val shuffled = originalPlaylistQueue.toMutableList()
+            val shuffled = upcomingItems.toMutableList()
             shuffled.shuffle()
             playlistQueue.addAll(shuffled)
         } else {
-            playlistQueue.addAll(originalPlaylistQueue)
+            playlistQueue.addAll(upcomingItems)
         }
 
         // Keep past tracks in history if started mid-list
@@ -167,8 +172,10 @@ class QueueManager @Inject constructor(
             playlistQueue.addAll(shuffled)
         } else {
             // Restore remaining unplayed items in their original order
-            val remainingIds = playlistQueue.map { it.queueEntryId }.toSet()
-            val restored = originalPlaylistQueue.filter { it.queueEntryId in remainingIds }
+            val remainingTrackIds = playlistQueue.map { it.track.id }.toSet()
+            val restored = originalPlaylistQueue
+                .filter { it.track.id in remainingTrackIds }
+                .map { QueueItem(track = it.track) }
             playlistQueue.clear()
             playlistQueue.addAll(restored)
         }
@@ -201,15 +208,16 @@ class QueueManager @Inject constructor(
             return@withLock nextItem.track
         }
 
-        // 3. Repeat ALL mode loops the whole playlist
+        // 3. Repeat ALL mode loops the whole playlist from the beginning
         if (repeatMode == RepeatMode.ALL && originalPlaylistQueue.isNotEmpty()) {
             playlistQueue.clear()
+            val freshItems = originalPlaylistQueue.map { QueueItem(track = it.track) }
             if (isShuffleEnabled) {
-                val shuffled = originalPlaylistQueue.toMutableList()
+                val shuffled = freshItems.toMutableList()
                 shuffled.shuffle()
                 playlistQueue.addAll(shuffled)
             } else {
-                playlistQueue.addAll(originalPlaylistQueue)
+                playlistQueue.addAll(freshItems)
             }
 
             val nextItem = playlistQueue.removeAt(0)
@@ -325,6 +333,10 @@ class QueueManager @Inject constructor(
                     originalPlaylistQueue.add(queueItem)
                 }
             }
+        }
+
+        if (currentItem != null && originalPlaylistQueue.none { it.track.id == currentItem?.track?.id }) {
+            originalPlaylistQueue.add(0, currentItem!!)
         }
 
         updateStateLocked()

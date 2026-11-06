@@ -35,6 +35,8 @@ class FakeTrackDao : TrackDao {
 
     override fun getLikedTracks(): Flow<List<TrackEntity>> = flowOf(tracks.values.filter { it.isLiked })
 
+    override suspend fun getLikedTracksList(): List<TrackEntity> = tracks.values.filter { it.isLiked }
+
     override suspend fun isTrackLiked(trackId: String): Boolean? = tracks[trackId]?.isLiked
 
     override suspend fun setLiked(trackId: String, isLiked: Boolean) {
@@ -44,6 +46,14 @@ class FakeTrackDao : TrackDao {
     override fun getDownloadedTracks(): Flow<List<TrackEntity>> = flowOf(tracks.values.filter { it.isDownloaded })
 
     override fun getListeningHistory(): Flow<List<TrackEntity>> = flowOf(tracks.values.toList())
+
+    override suspend fun updateLastPlayedAt(trackId: String, timestamp: Long): Int {
+        tracks[trackId]?.let {
+            tracks[trackId] = it.copy(lastPlayedAt = timestamp)
+            return 1
+        }
+        return 0
+    }
 }
 
 class FakeQueueDao : QueueDao {
@@ -168,6 +178,47 @@ class QueueManagerTest {
 
         val next = queueManager.nextTrack()
         assertEquals("Track 1", next?.title)
+    }
+
+    @Test
+    fun testRepeatModeAll_loopsWholePlaylistWhenLastTrackEnds() = runBlocking {
+        val tracks = listOf(
+            createTestTrack("1", "Track 1"),
+            createTestTrack("2", "Track 2"),
+            createTestTrack("3", "Track 3")
+        )
+        queueManager.setContext(tracks, 0)
+        queueManager.setRepeatMode(RepeatMode.ALL)
+
+        assertEquals("Track 2", queueManager.nextTrack()?.title)
+        assertEquals("Track 3", queueManager.nextTrack()?.title)
+
+        // At last track, peekNextTrack should peek track 1 for pre-cueing & crossfade
+        assertEquals("Track 1", queueManager.peekNextTrack()?.title)
+        assertTrue(queueManager.hasNextTrack())
+
+        // Next track should loop back to track 1
+        assertEquals("Track 1", queueManager.nextTrack()?.title)
+        assertEquals("Track 2", queueManager.nextTrack()?.title)
+    }
+
+    @Test
+    fun testRepeatModeAll_startingAtLastTrack_loopsBackToBeginning() = runBlocking {
+        val tracks = listOf(
+            createTestTrack("1", "Track 1"),
+            createTestTrack("2", "Track 2"),
+            createTestTrack("3", "Track 3")
+        )
+        // Start directly at the last track
+        queueManager.setContext(tracks, 2)
+        queueManager.setRepeatMode(RepeatMode.ALL)
+
+        assertEquals("Track 1", queueManager.peekNextTrack()?.title)
+        assertTrue(queueManager.hasNextTrack())
+
+        // Advancing from last track should restart from Track 1
+        assertEquals("Track 1", queueManager.nextTrack()?.title)
+        assertEquals("Track 2", queueManager.nextTrack()?.title)
     }
 
     @Test
