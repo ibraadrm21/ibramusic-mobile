@@ -16,6 +16,7 @@ import com.ibramusic.mobile.domain.model.PlaybackState
 import com.ibramusic.mobile.domain.model.RepeatMode
 import com.ibramusic.mobile.domain.model.Track
 import com.ibramusic.mobile.playback.audiofx.EqualizerManager
+import com.ibramusic.mobile.playback.session.PlaybackSessionManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,8 @@ import kotlin.math.pow
 @Singleton
 class ExoPlayerWrapper @Inject constructor(
     @ApplicationContext private val context: Context,
-    val equalizerManager: EqualizerManager
+    val equalizerManager: EqualizerManager,
+    private val sessionManager: PlaybackSessionManager
 ) {
     companion object {
         private const val TAG = "ExoPlayerWrapper"
@@ -43,6 +45,7 @@ class ExoPlayerWrapper @Inject constructor(
     private var positionTickerJob: Job? = null
     private var crossfadeJob: Job? = null
     private var sleepTimerJob: Job? = null
+    private var lastPersistTimeMs: Long = 0L
 
     private val _sleepTimerMinutesLeft = MutableStateFlow<Int?>(null)
     val sleepTimerMinutesLeft: StateFlow<Int?> = _sleepTimerMinutesLeft.asStateFlow()
@@ -222,6 +225,33 @@ class ExoPlayerWrapper @Inject constructor(
         }
     }
 
+    fun isMediaLoaded(): Boolean {
+        val active = activePlayer
+        return active.currentMediaItem != null && active.playbackState != Player.STATE_IDLE
+    }
+
+    fun restoreSession(
+        track: Track,
+        positionMs: Long,
+        durationMs: Long,
+        repeatMode: RepeatMode = RepeatMode.OFF,
+        shuffleEnabled: Boolean = false
+    ) = runOnMain {
+        currentTrack = track
+        val safeDuration = if (durationMs > 0) durationMs else track.durationMs
+        val safePosition = positionMs.coerceIn(0L, safeDuration)
+        _playbackState.value = _playbackState.value.copy(
+            currentTrack = track,
+            positionMs = safePosition,
+            durationMs = safeDuration,
+            isPlaying = false,
+            isBuffering = false,
+            playbackError = null,
+            repeatMode = repeatMode,
+            shuffleEnabled = shuffleEnabled
+        )
+    }
+
     fun setPreparing(track: Track) {
         currentTrack = track
         _playbackState.value = _playbackState.value.copy(
@@ -274,6 +304,14 @@ class ExoPlayerWrapper @Inject constructor(
             positionMs = startPositionMs,
             durationMs = track.durationMs,
             playbackError = null
+        )
+
+        sessionManager.saveSession(
+            trackId = track.id,
+            positionMs = startPositionMs,
+            durationMs = track.durationMs,
+            shuffle = _playbackState.value.shuffleEnabled,
+            repeatMode = _playbackState.value.repeatMode
         )
 
         onActivePlayerChangedCallback?.invoke(active)
@@ -455,14 +493,22 @@ class ExoPlayerWrapper @Inject constructor(
     fun pause() = runOnMain {
         activePlayer.pause()
         standbyPlayer.pause()
+        currentTrack?.let {
+            sessionManager.updatePosition(activePlayer.currentPosition, it.durationMs)
+        }
     }
 
     fun seekTo(positionMs: Long) = runOnMain {
         val safePosition = positionMs.coerceAtLeast(0L)
-        activePlayer.seekTo(safePosition)
+        if (isMediaLoaded()) {
+            activePlayer.seekTo(safePosition)
+        }
         _playbackState.value = _playbackState.value.copy(
             positionMs = safePosition
         )
+        currentTrack?.let {
+            sessionManager.updatePosition(safePosition, it.durationMs)
+        }
     }
 
     fun setVolume(volume: Float) = runOnMain {
@@ -518,10 +564,24 @@ class ExoPlayerWrapper @Inject constructor(
 
     fun updateRepeatMode(mode: RepeatMode) {
         _playbackState.value = _playbackState.value.copy(repeatMode = mode)
+        sessionManager.saveSession(
+            trackId = currentTrack?.id,
+            positionMs = _playbackState.value.positionMs,
+            durationMs = _playbackState.value.durationMs,
+            shuffle = _playbackState.value.shuffleEnabled,
+            repeatMode = mode
+        )
     }
 
     fun updateShuffleState(enabled: Boolean) {
         _playbackState.value = _playbackState.value.copy(shuffleEnabled = enabled)
+        sessionManager.saveSession(
+            trackId = currentTrack?.id,
+            positionMs = _playbackState.value.positionMs,
+            durationMs = _playbackState.value.durationMs,
+            shuffle = enabled,
+            repeatMode = _playbackState.value.repeatMode
+        )
     }
 
     private fun startPositionTicker() {
@@ -536,6 +596,12 @@ class ExoPlayerWrapper @Inject constructor(
                         positionMs = pos,
                         durationMs = dur
                     )
+
+                    val now = System.currentTimeMillis()
+                    if (now - lastPersistTimeMs >= 1000L) {
+                        lastPersistTimeMs = now
+                        sessionManager.updatePosition(pos, dur)
+                    }
 
                     // Spotify-style Simultaneous Crossfade Detection:
                     // 1. Pre-cue standby deck 25 seconds before track ends

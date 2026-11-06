@@ -107,6 +107,7 @@ class QueueManager @Inject constructor(
         }
 
         updateStateLocked()
+        persistQueueLocked()
         currentTrack
     }
 
@@ -114,12 +115,14 @@ class QueueManager @Inject constructor(
         val item = QueueItem(track = track)
         userQueue.add(0, item)
         updateStateLocked()
+        persistQueueLocked()
     }
 
     suspend fun addToQueue(track: Track): Unit = mutex.withLock {
         val item = QueueItem(track = track)
         userQueue.add(item)
         updateStateLocked()
+        persistQueueLocked()
     }
 
     suspend fun removeFromQueue(queueEntryId: String): Unit = mutex.withLock {
@@ -127,6 +130,7 @@ class QueueManager @Inject constructor(
         playlistQueue.removeAll { it.queueEntryId == queueEntryId }
         originalPlaylistQueue.removeAll { it.queueEntryId == queueEntryId }
         updateStateLocked()
+        persistQueueLocked()
     }
 
     suspend fun reorderUserQueue(fromIndex: Int, toIndex: Int): Unit = mutex.withLock {
@@ -134,6 +138,7 @@ class QueueManager @Inject constructor(
             val item = userQueue.removeAt(fromIndex)
             userQueue.add(toIndex, item)
             updateStateLocked()
+            persistQueueLocked()
         }
     }
 
@@ -142,12 +147,14 @@ class QueueManager @Inject constructor(
             val item = playlistQueue.removeAt(fromIndex)
             playlistQueue.add(toIndex, item)
             updateStateLocked()
+            persistQueueLocked()
         }
     }
 
     suspend fun clearUserQueue(): Unit = mutex.withLock {
         userQueue.clear()
         updateStateLocked()
+        persistQueueLocked()
     }
 
     suspend fun clearAll(): Unit = mutex.withLock {
@@ -157,6 +164,7 @@ class QueueManager @Inject constructor(
         originalPlaylistQueue.clear()
         history.clear()
         updateStateLocked()
+        queueDao.clearAll()
     }
 
     suspend fun setRepeatMode(mode: RepeatMode): Unit = mutex.withLock {
@@ -180,6 +188,7 @@ class QueueManager @Inject constructor(
             playlistQueue.addAll(restored)
         }
         updateStateLocked()
+        persistQueueLocked()
         isShuffleEnabled
     }
 
@@ -197,6 +206,7 @@ class QueueManager @Inject constructor(
             val nextItem = userQueue.removeAt(0)
             currentItem = nextItem
             updateStateLocked()
+            persistQueueLocked()
             return@withLock nextItem.track
         }
 
@@ -205,6 +215,7 @@ class QueueManager @Inject constructor(
             val nextItem = playlistQueue.removeAt(0)
             currentItem = nextItem
             updateStateLocked()
+            persistQueueLocked()
             return@withLock nextItem.track
         }
 
@@ -223,12 +234,14 @@ class QueueManager @Inject constructor(
             val nextItem = playlistQueue.removeAt(0)
             currentItem = nextItem
             updateStateLocked()
+            persistQueueLocked()
             return@withLock nextItem.track
         }
 
         // End of queue
         currentItem = null
         updateStateLocked()
+        persistQueueLocked()
         null
     }
 
@@ -244,6 +257,7 @@ class QueueManager @Inject constructor(
             currentItem?.let { playlistQueue.add(0, it) }
             currentItem = prevItem
             updateStateLocked()
+            persistQueueLocked()
             return@withLock PreviousResult.PlayTrack(prevItem.track)
         }
 
@@ -259,7 +273,7 @@ class QueueManager @Inject constructor(
         currentItem?.track
     }
 
-    suspend fun persistQueue(): Unit = mutex.withLock {
+    private suspend fun persistQueueLocked() {
         val entitiesToSave = mutableListOf<QueueEntity>()
         var order = 0
 
@@ -302,8 +316,25 @@ class QueueManager @Inject constructor(
             )
         }
 
+        originalPlaylistQueue.forEach { item ->
+            trackDao.upsertTrack(TrackEntity.fromDomain(item.track))
+            entitiesToSave.add(
+                QueueEntity(
+                    queueEntryId = "orig_" + item.queueEntryId,
+                    trackId = item.track.id,
+                    queueType = "ORIGINAL_CONTEXT",
+                    positionOrder = order++,
+                    addedAt = item.addedAt
+                )
+            )
+        }
+
         queueDao.clearAll()
         queueDao.insertQueueItems(entitiesToSave)
+    }
+
+    suspend fun persistQueue(): Unit = mutex.withLock {
+        persistQueueLocked()
     }
 
     suspend fun restoreQueue(): PlaybackQueue = mutex.withLock {
@@ -316,11 +347,13 @@ class QueueManager @Inject constructor(
         originalPlaylistQueue.clear()
         history.clear()
 
+        var hasOriginalContext = false
+
         for (entity in entities) {
             val trackEntity = trackDao.getTrackById(entity.trackId) ?: continue
             val track = trackEntity.toDomain()
             val queueItem = QueueItem(
-                queueEntryId = entity.queueEntryId,
+                queueEntryId = entity.queueEntryId.removePrefix("orig_"),
                 track = track,
                 addedAt = entity.addedAt
             )
@@ -328,15 +361,18 @@ class QueueManager @Inject constructor(
             when (entity.queueType) {
                 "CURRENT" -> currentItem = queueItem
                 "USER" -> userQueue.add(queueItem)
-                "CONTEXT" -> {
-                    playlistQueue.add(queueItem)
+                "CONTEXT" -> playlistQueue.add(queueItem)
+                "ORIGINAL_CONTEXT" -> {
                     originalPlaylistQueue.add(queueItem)
+                    hasOriginalContext = true
                 }
             }
         }
 
-        if (currentItem != null && originalPlaylistQueue.none { it.track.id == currentItem?.track?.id }) {
-            originalPlaylistQueue.add(0, currentItem!!)
+        if (!hasOriginalContext) {
+            originalPlaylistQueue.clear()
+            currentItem?.let { originalPlaylistQueue.add(it) }
+            originalPlaylistQueue.addAll(playlistQueue)
         }
 
         updateStateLocked()

@@ -14,6 +14,7 @@ import com.ibramusic.mobile.playback.queue.PreviousResult
 import com.ibramusic.mobile.playback.queue.QueueManager
 import com.ibramusic.mobile.playback.resolver.UnifiedPlaybackResolver
 import com.ibramusic.mobile.playback.service.IbraMusicPlaybackService
+import com.ibramusic.mobile.playback.session.PlaybackSessionManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,8 @@ class PlaybackRepositoryImpl @Inject constructor(
     private val playerWrapper: ExoPlayerWrapper,
     private val queueManager: QueueManager,
     private val resolver: UnifiedPlaybackResolver,
-    private val trackDao: TrackDao
+    private val trackDao: TrackDao,
+    private val sessionManager: PlaybackSessionManager
 ) : PlaybackRepository {
 
     private val repositoryScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -37,6 +39,34 @@ class PlaybackRepositoryImpl @Inject constructor(
     override val playbackState: StateFlow<PlaybackState> = playerWrapper.playbackState
     override val playbackSpeed: StateFlow<Float> = playerWrapper.playbackSpeed
     override val sleepTimerMinutesLeft: StateFlow<Int?> = playerWrapper.sleepTimerMinutesLeft
+
+    init {
+        repositoryScope.launch {
+            restorePlaybackSession()
+        }
+    }
+
+    private suspend fun restorePlaybackSession() {
+        val session = sessionManager.getSavedSession() ?: return
+        val restoredQueue = queueManager.restoreQueue()
+        queueManager.setRepeatMode(session.repeatMode)
+
+        val track = restoredQueue.current?.track
+            ?: session.trackId?.let { trackDao.getTrackById(it)?.toDomain() }
+            ?: return
+
+        playerWrapper.restoreSession(
+            track = track,
+            positionMs = session.positionMs,
+            durationMs = session.durationMs,
+            repeatMode = session.repeatMode,
+            shuffleEnabled = session.shuffle
+        )
+
+        // Pre-resolve restored track into memory cache for instant (0ms) resumption
+        resolver.preResolve(track)
+        queueManager.peekNextTrack()?.let { resolver.preResolve(it) }
+    }
 
     private fun ensureServiceStarted() {
         try {
@@ -81,7 +111,7 @@ class PlaybackRepositoryImpl @Inject constructor(
         if (playbackState.value.isPlaying) {
             playerWrapper.pause()
         } else {
-            playerWrapper.play()
+            resumeOrPlayCurrent()
         }
     }
 
@@ -90,7 +120,39 @@ class PlaybackRepositoryImpl @Inject constructor(
     }
 
     override fun resume() {
-        playerWrapper.play()
+        resumeOrPlayCurrent()
+    }
+
+    private fun resumeOrPlayCurrent() {
+        if (playerWrapper.isMediaLoaded()) {
+            ensureServiceStarted()
+            playerWrapper.play()
+        } else {
+            val current = playbackState.value.currentTrack ?: return
+            val resumePosition = playbackState.value.positionMs
+            val startPos = if (current.durationMs > 5000L && resumePosition >= current.durationMs - 2000L) {
+                0L
+            } else {
+                resumePosition
+            }
+
+            playerWrapper.setPreparing(current)
+            ensureServiceStarted()
+
+            repositoryScope.launch {
+                val source = resolver.resolve(current)
+                if (source != null) {
+                    playerWrapper.prepareAndPlay(
+                        track = current,
+                        source = source,
+                        playWhenReady = true,
+                        startPositionMs = startPos
+                    )
+                    trackDao.recordTrackPlayed(TrackEntity.fromDomain(current))
+                    queueManager.peekNextTrack()?.let { resolver.preResolve(it) }
+                }
+            }
+        }
     }
 
     override fun seekTo(positionMs: Long) {
@@ -98,6 +160,7 @@ class PlaybackRepositoryImpl @Inject constructor(
     }
 
     override fun skipToNext() {
+        ensureServiceStarted()
         repositoryScope.launch {
             val next = queueManager.nextTrack()
             if (next != null) {
@@ -120,6 +183,7 @@ class PlaybackRepositoryImpl @Inject constructor(
     }
 
     override fun skipToPrevious() {
+        ensureServiceStarted()
         repositoryScope.launch {
             val currentPosition = playerWrapper.playbackState.value.positionMs
             when (val result = queueManager.previousTrack(currentPosition)) {

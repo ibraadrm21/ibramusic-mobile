@@ -122,6 +122,14 @@ class IbraMusicPlaybackService : MediaSessionService() {
                 return true
             }
 
+            override fun play() {
+                if (playerWrapper.isMediaLoaded()) {
+                    super.play()
+                } else {
+                    serviceScope.launch { resumeRestoredPlayback() }
+                }
+            }
+
             override fun seekToNext() {
                 serviceScope.launch { skipToNext() }
             }
@@ -311,7 +319,11 @@ class IbraMusicPlaybackService : MediaSessionService() {
                 if (playerWrapper.playbackState.value.isPlaying) {
                     playerWrapper.pause()
                 } else {
-                    playerWrapper.play()
+                    if (playerWrapper.isMediaLoaded()) {
+                        playerWrapper.play()
+                    } else {
+                        serviceScope.launch { resumeRestoredPlayback() }
+                    }
                 }
             }
             "ACTION_NEXT" -> {
@@ -326,6 +338,36 @@ class IbraMusicPlaybackService : MediaSessionService() {
         startForeground(Constants.NOTIFICATION_ID, notification)
 
         return super.onStartCommand(intent, flags, startId)
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val player = playerWrapper.activePlayer
+        if (!player.playWhenReady || player.mediaItemCount == 0) {
+            stopSelf()
+        }
+    }
+
+    private suspend fun resumeRestoredPlayback() {
+        val current = playerWrapper.playbackState.value.currentTrack ?: return
+        val resumePosition = playerWrapper.playbackState.value.positionMs
+        val startPos = if (current.durationMs > 5000L && resumePosition >= current.durationMs - 2000L) {
+            0L
+        } else {
+            resumePosition
+        }
+
+        playerWrapper.setPreparing(current)
+        val source = resolver.resolve(current)
+        if (source != null) {
+            playerWrapper.prepareAndPlay(
+                track = current,
+                source = source,
+                playWhenReady = true,
+                startPositionMs = startPos
+            )
+            trackDao.recordTrackPlayed(TrackEntity.fromDomain(current))
+            queueManager.peekNextTrack()?.let { resolver.preResolve(it) }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

@@ -240,5 +240,26 @@ class QueueManagerTest {
         assertEquals(1, restored.playlistQueue.size)
         assertEquals("Track 2", restored.playlistQueue.first().track.title)
     }
+
+    @Test
+    fun testQueuePersistence_preservesFullOriginalContextForRepeat() = runBlocking {
+        val tracks = listOf(
+            createTestTrack("1", "Track 1"),
+            createTestTrack("2", "Track 2"),
+            createTestTrack("3", "Track 3")
+        )
+        // Start at track 2 (index 1)
+        queueManager.setContext(tracks, 1)
+
+        // Restore into new QueueManager
+        val newManager = QueueManager(fakeQueueDao, fakeTrackDao)
+        val restored = newManager.restoreQueue()
+        newManager.setRepeatMode(RepeatMode.ALL)
+
+        assertEquals("Track 2", restored.current?.track?.title)
+        assertEquals("Track 3", newManager.nextTrack()?.title)
+        // On repeat all, should loop back to Track 1 because full original context was persisted
+        assertEquals("Track 1", newManager.nextTrack()?.title)
+    }
 }
 
