@@ -21,3 +21,8 @@ inspect_web.py
 find_tabs.py
 test_cdp.py
 
+# Keep ui-react graphify output
+!ui-react/graphify-out/
+!ui-react/graphify-out/**
+
+

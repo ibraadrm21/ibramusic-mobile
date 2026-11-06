@@ -1,0 +1,280 @@
+{
+  "communities": {
+    "0": [
+      "dump_main_views",
+      "dump_main_views_fs",
+      "dump_main_views_jscode",
+      "dump_main_views_jspath",
+      "dump_main_views_mainviewsblock",
+      "dump_main_views_path",
+      "extract_views",
+      "extract_views_apiurls",
+      "extract_views_fs",
+      "extract_views_jscode",
+      "extract_views_jspath",
+      "extract_views_path",
+      "extract_views_storagekeys",
+      "extract_views_titles",
+      "extract_views_uniquetitles",
+      "find_tabs",
+      "find_tabs_fs",
+      "find_tabs_jscode",
+      "find_tabs_jspath",
+      "find_tabs_path",
+      "find_tabs_sections",
+      "parse_views",
+      "parse_views_code",
+      "parse_views_fs",
+      "parse_views_path",
+      "parse_views_tabs",
+      "ref_fs",
+      "ref_path"
+    ],
+    "1": [
+      "src_app",
+      "src_app_app",
+      "src_components_layout_navbar",
+      "src_components_layout_navbar_navbar",
+      "src_components_layout_navbar_navbarprops",
+      "src_components_layout_navbar_navtab",
+      "src_components_player_desktopplayerbar_desktopplayerbar",
+      "src_components_player_mobileminiplayer_mobileminiplayer",
+      "src_components_player_nowplayingmodal_nowplayingmodal",
+      "src_components_player_queuedrawer",
+      "src_components_player_queuedrawer_queuedrawer",
+      "src_components_player_queuedrawer_queuedrawerprops",
+      "src_components_views_homeview_homeview",
+      "src_components_views_libraryview_libraryview",
+      "src_components_views_searchview_searchview",
+      "src_components_views_settingsview_settingsview",
+      "src_components_views_statsview_statsview",
+      "src_context_audiocontext_audioprovider",
+      "src_context_audiocontext_useaudio"
+    ],
+    "2": [
+      "ref_react",
+      "src_components_player_desktopplayerbar",
+      "src_components_player_desktopplayerbar_desktopplayerbarprops",
+      "src_components_player_mobileminiplayer",
+      "src_components_player_mobileminiplayer_mobileminiplayerprops",
+      "src_components_player_nowplayingmodal",
+      "src_components_player_nowplayingmodal_nowplayingmodalprops",
+      "src_components_views_searchview",
+      "src_components_views_searchview_searchfilter",
+      "src_components_views_searchview_searchviewprops",
+      "src_context_audiocontext",
+      "src_context_audiocontext_audiocontext",
+      "src_context_audiocontext_audiocontextvalue",
+      "src_types_index_playbackstate",
+      "src_types_index_queuestate",
+      "src_types_index_repeatmode",
+      "src_types_index_track"
+    ],
+    "3": [
+      "src_components_views_homeview",
+      "src_components_views_homeview_homeviewprops",
+      "src_components_views_libraryview",
+      "src_components_views_libraryview_librarysubtab",
+      "src_components_views_libraryview_libraryviewprops",
+      "src_components_views_statsview",
+      "src_components_views_statsview_statsviewprops",
+      "src_types_index",
+      "src_types_index_album",
+      "src_types_index_artist",
+      "src_types_index_eqpreset",
+      "src_types_index_leaderboarduser",
+      "src_types_index_playlist",
+      "src_types_index_userstats"
+    ],
+    "4": [
+      "analyze",
+      "analyze_csscode",
+      "analyze_csspath",
+      "analyze_fs",
+      "analyze_jscode",
+      "analyze_jspath",
+      "analyze_path",
+      "analyze_uniqueviews"
+    ],
+    "5": [
+      "extract_components",
+      "extract_components_fs",
+      "extract_components_jscode",
+      "extract_components_jspath",
+      "extract_components_keywords",
+      "extract_components_path",
+      "extract_components_results"
+    ],
+    "6": [
+      "find_player",
+      "find_player_fs",
+      "find_player_jscode",
+      "find_player_jspath",
+      "find_player_path",
+      "find_player_playersnippets",
+      "find_player_terms"
+    ],
+    "7": [
+      "src_components_player_lyricsview",
+      "src_components_player_lyricsview_lyricsview",
+      "src_components_player_lyricsview_lyricsviewprops",
+      "src_components_player_lyricsview_parselrc",
+      "src_types_index_lyricline"
+    ],
+    "8": [
+      "src_components_views_settingsview",
+      "src_components_views_settingsview_settingsviewprops",
+      "src_types_index_thememode",
+      "src_types_index_themesettings"
+    ],
+    "9": [
+      "src_styles_theme",
+      "src_styles_theme_animations",
+      "src_styles_theme_colors",
+      "src_styles_theme_glassmorphism"
+    ]
+  },
+  "cohesion": {
+    "0": 0.07936507936507936,
+    "1": 0.22807017543859648,
+    "2": 0.22794117647058823,
+    "3": 0.25274725274725274,
+    "4": 0.25,
+    "5": 0.2857142857142857,
+    "6": 0.2857142857142857,
+    "7": 0.5,
+    "8": 0.8333333333333334,
+    "9": 0.5
+  },
+  "gods": [
+    {
+      "id": "src_context_audiocontext_useaudio",
+      "label": "useAudio()",
+      "degree": 17
+    },
+    {
+      "id": "src_types_index_track",
+      "label": "Track",
+      "degree": 15
+    },
+    {
+      "id": "src_app_app",
+      "label": "App()",
+      "degree": 13
+    },
+    {
+      "id": "src_types_index_playlist",
+      "label": "Playlist",
+      "degree": 6
+    },
+    {
+      "id": "src_components_player_lyricsview_lyricsview",
+      "label": "LyricsView()",
+      "degree": 5
+    },
+    {
+      "id": "src_context_audiocontext_audiocontextvalue",
+      "label": "AudioContextValue",
+      "degree": 4
+    },
+    {
+      "id": "src_types_index_thememode",
+      "label": "ThemeMode",
+      "degree": 4
+    },
+    {
+      "id": "src_types_index_themesettings",
+      "label": "ThemeSettings",
+      "degree": 4
+    },
+    {
+      "id": "src_components_player_desktopplayerbar_desktopplayerbar",
+      "label": "DesktopPlayerBar()",
+      "degree": 4
+    },
+    {
+      "id": "src_components_player_mobileminiplayer_mobileminiplayer",
+      "label": "MobileMiniPlayer()",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "DesktopPlayerBarProps",
+      "target": "Track",
+      "source_files": [
+        "src/components/player/DesktopPlayerBar.tsx",
+        "src/types/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "peripheral node `DesktopPlayerBarProps` unexpectedly reaches hub `Track`"
+    },
+    {
+      "source": "MobileMiniPlayerProps",
+      "target": "Track",
+      "source_files": [
+        "src/components/player/MobileMiniPlayer.tsx",
+        "src/types/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "peripheral node `MobileMiniPlayerProps` unexpectedly reaches hub `Track`"
+    },
+    {
+      "source": "NowPlayingModalProps",
+      "target": "Track",
+      "source_files": [
+        "src/components/player/NowPlayingModal.tsx",
+        "src/types/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "peripheral node `NowPlayingModalProps` unexpectedly reaches hub `Track`"
+    },
+    {
+      "source": "SearchViewProps",
+      "target": "Track",
+      "source_files": [
+        "src/components/views/SearchView.tsx",
+        "src/types/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "peripheral node `SearchViewProps` unexpectedly reaches hub `Track`"
+    },
+    {
+      "source": "HomeViewProps",
+      "target": "Playlist",
+      "source_files": [
+        "src/components/views/HomeView.tsx",
+        "src/types/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "peripheral node `HomeViewProps` unexpectedly reaches hub `Playlist`"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `Track` connect `Community 2` to `Community 1`, `Community 3`?",
+      "why": "High betweenness centrality (0.025) - this node is a cross-community bridge."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07936507936507936 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `useAudio()` connect `Community 1` to `Community 8`, `Community 2`, `Community 3`, `Community 7`?",
+      "why": "High betweenness centrality (0.015) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Playlist` connect `Community 3` to `Community 1`?",
+      "why": "High betweenness centrality (0.007) - this node is a cross-community bridge."
+    }
+  ]
+}

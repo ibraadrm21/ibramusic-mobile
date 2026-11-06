@@ -1,0 +1,14 @@
+{
+	"appId": "com.ibrastream.app",
+	"appName": "IbraStream",
+	"webDir": "web-build",
+	"android": {},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 0
+		},
+		"CapacitorHttp": {
+			"enabled": true
+		}
+	}
+}
