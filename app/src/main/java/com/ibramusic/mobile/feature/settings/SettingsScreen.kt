@@ -17,10 +17,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,6 +80,20 @@ fun SettingsScreen(
     val theme by viewModel.theme.collectAsState()
     val isGuest by viewModel.isGuest.collectAsState()
     val userEmail by viewModel.userEmail.collectAsState()
+    val userAvatar by viewModel.userAvatar.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+
+    val resolvedAvatarBitmap = remember(userAvatar) {
+        if (userAvatar != null && (userAvatar!!.startsWith("data:image", ignoreCase = true) || (userAvatar!!.length > 200 && !userAvatar!!.startsWith("http", ignoreCase = true) && !userAvatar!!.startsWith("file:", ignoreCase = true)))) {
+            try {
+                val base64Data = if (userAvatar!!.contains(",")) userAvatar!!.substringAfter(",") else userAvatar!!
+                val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
     val authError by viewModel.authError.collectAsState()
     val isLoadingAuth by viewModel.isLoadingAuth.collectAsState()
     val activePreset by viewModel.equalizerManager.activePreset.collectAsState()
@@ -255,22 +278,72 @@ fun SettingsScreen(
                             }
                         }
                     } else {
-                        // Logged in user
-                        Text(
-                            text = "Conectado a Supabase",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Zinc50,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                        Text(
-                            text = "Cuenta: ${userEmail ?: "Usuario"}",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Zinc400)
-                        )
-                        Text(
-                            text = "Sincronización activa con IbraMusic Web (user_sync)",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF10B981))
-                        )
+                        // Logged in user with Avatar and Profile header
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1E1E1E))
+                                    .border(1.5.dp, BrandEmerald.copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (resolvedAvatarBitmap != null) {
+                                    Image(
+                                        bitmap = resolvedAvatarBitmap.asImageBitmap(),
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else if (!userAvatar.isNullOrEmpty()) {
+                                    AsyncImage(
+                                        model = userAvatar,
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else if (!userName.isNullOrEmpty()) {
+                                    Text(
+                                        text = userName!!.take(2).uppercase(),
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Person,
+                                        contentDescription = "Avatar",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column {
+                                Text(
+                                    text = if (!userName.isNullOrEmpty()) userName!! else (userEmail?.substringBefore("@") ?: "Usuario"),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        color = Zinc50,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                                Text(
+                                    text = userEmail ?: "Cuenta sincronizada",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Zinc400)
+                                )
+                                Text(
+                                    text = "Sincronizado con IbraMusic Web (user_sync)",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF10B981))
+                                )
+                            }
+                        }
 
                         val syncStatus by viewModel.syncStatus.collectAsState()
                         if (!syncStatus.isNullOrEmpty()) {

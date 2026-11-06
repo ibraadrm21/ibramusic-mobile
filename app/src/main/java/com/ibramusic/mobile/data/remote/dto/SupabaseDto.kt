@@ -59,7 +59,10 @@ data class WebSyncData(
     @SerializedName("themeSettings") val themeSettings: Any? = null,
     @SerializedName("accumulatedStats") val accumulatedStats: Any? = null,
     @SerializedName("avatar_url") val avatarUrl: String? = null,
-    @SerializedName("pfp") val pfp: String? = null
+    @SerializedName("avatarUrl") val avatarUrlCamel: String? = null,
+    @SerializedName("avatar") val avatar: String? = null,
+    @SerializedName("pfp") val pfp: String? = null,
+    @SerializedName("userProfile") val userProfile: Map<String, Any?>? = null
 )
 
 data class SupabaseSyncRow(

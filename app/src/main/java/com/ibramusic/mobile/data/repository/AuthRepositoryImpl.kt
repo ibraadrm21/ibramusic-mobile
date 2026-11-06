@@ -51,6 +51,9 @@ class AuthRepositoryImpl @Inject constructor(
             ?: (meta["profile_image"] as? String)
             ?: (meta["photoURL"] as? String)
             ?: (meta["image"] as? String)
+            ?: (meta["avatarUrl"] as? String)
+            ?: (meta["profile_picture"] as? String)
+            ?: (meta["profilePicture"] as? String)
     }
 
     private fun extractName(meta: Map<String, Any?>?): String? {
@@ -133,12 +136,15 @@ class AuthRepositoryImpl @Inject constructor(
                 val userId = body.user?.id ?: ""
                 val userEmail = body.user?.email ?: cleanEmail
                 val avatar = extractAvatar(body.user?.userMetadata)
+                val safeAvatar = if (!avatar.isNullOrEmpty()) {
+                    supabaseSyncManager.sanitizeAndPersistImage(avatar, "avatar", userId) ?: avatar
+                } else null
                 val userName = extractName(body.user?.userMetadata)
 
                 authDataStore.edit { prefs ->
                     prefs[KEY_USER_ID] = userId
                     prefs[KEY_USER_EMAIL] = userEmail
-                    if (!avatar.isNullOrEmpty()) prefs[KEY_USER_AVATAR] = avatar
+                    if (!safeAvatar.isNullOrEmpty()) prefs[KEY_USER_AVATAR] = safeAvatar
                     if (!userName.isNullOrEmpty()) prefs[KEY_USER_NAME] = userName
                     prefs[KEY_ACCESS_TOKEN] = token
                     if (refreshToken.isNotEmpty()) {
@@ -352,10 +358,13 @@ class AuthRepositoryImpl @Inject constructor(
             if (userRes.isSuccessful && userRes.body() != null) {
                 val user = userRes.body()!!
                 val avatar = extractAvatar(user.userMetadata)
+                val safeAvatar = if (!avatar.isNullOrEmpty()) {
+                    supabaseSyncManager.sanitizeAndPersistImage(avatar, "avatar", userId) ?: avatar
+                } else null
                 val name = extractName(user.userMetadata)
 
                 authDataStore.edit { p ->
-                    if (!avatar.isNullOrEmpty()) p[KEY_USER_AVATAR] = avatar
+                    if (!safeAvatar.isNullOrEmpty()) p[KEY_USER_AVATAR] = safeAvatar
                     if (!name.isNullOrEmpty()) p[KEY_USER_NAME] = name
                 }
             }

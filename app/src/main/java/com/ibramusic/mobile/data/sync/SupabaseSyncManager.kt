@@ -187,7 +187,7 @@ class SupabaseSyncManager @Inject constructor(
      * Sanitizes huge Base64 data URIs by saving them to disk and returning a compact file URI.
      * Prevents SQLite CursorWindow (2MB) SQLiteBlobTooBigException.
      */
-    private fun sanitizeAndPersistImage(rawUri: String?, prefix: String, id: String): String? {
+    fun sanitizeAndPersistImage(rawUri: String?, prefix: String, id: String): String? {
         if (rawUri.isNullOrEmpty()) return null
         if (rawUri.startsWith("data:image", ignoreCase = true) || (rawUri.length > 2000 && !rawUri.startsWith("http", ignoreCase = true))) {
             return try {
@@ -216,7 +216,7 @@ class SupabaseSyncManager @Inject constructor(
     /**
      * Restores original Base64 URI if this image was saved locally to avoid SQLite limits.
      */
-    private fun restoreOriginalCover(uri: String?, prefix: String, id: String): String? {
+    fun restoreOriginalCover(uri: String?, prefix: String, id: String): String? {
         if (uri == null) return null
         if (uri.startsWith("file:", ignoreCase = true)) {
             val cleanId = id.replace(Regex("[^a-zA-Z0-9_-]"), "_")
@@ -283,10 +283,17 @@ class SupabaseSyncManager @Inject constructor(
                 }
 
                 // Sync avatar if present
-                val cloudAvatar = data.avatarUrl ?: data.pfp
+                val cloudAvatar = data.avatarUrl
+                    ?: data.pfp
+                    ?: data.avatar
+                    ?: data.avatarUrlCamel
+                    ?: (data.userProfile?.get("avatar_url") as? String)
+                    ?: (data.userProfile?.get("pfp") as? String)
+                    ?: (data.userProfile?.get("avatar") as? String)
                 if (!cloudAvatar.isNullOrEmpty()) {
+                    val safeAvatar = sanitizeAndPersistImage(cloudAvatar, "avatar", userId) ?: cloudAvatar
                     authDataStore.edit { p ->
-                        p[stringPreferencesKey("user_avatar")] = cloudAvatar
+                        p[stringPreferencesKey("user_avatar")] = safeAvatar
                     }
                 }
 
@@ -458,10 +465,15 @@ class SupabaseSyncManager @Inject constructor(
             }
             val nowIso = dateFormat.format(Date())
 
+            val currentAvatar = authDataStore.data.firstOrNull()?.get(stringPreferencesKey("user_avatar"))
+            val restoredAvatar = restoreOriginalCover(currentAvatar, "avatar", userId) ?: currentAvatar
+
             val syncData = WebSyncData(
                 favorites = webFavorites,
                 playlists = webPlaylists,
-                accumulatedStats = userStatsManager.toCloudJson()
+                accumulatedStats = userStatsManager.toCloudJson(),
+                avatarUrl = restoredAvatar,
+                pfp = restoredAvatar
             )
 
             val payload = SupabaseSyncRow(

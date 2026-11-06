@@ -66,6 +66,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -136,6 +140,18 @@ class MainActivity : ComponentActivity() {
                 val userName by settingsViewModel.userName.collectAsState()
                 val isGuest by settingsViewModel.isGuest.collectAsState()
                 val isOfflineMode by settingsViewModel.isOfflineMode.collectAsState()
+
+                val resolvedAvatarBitmap = remember(userAvatar) {
+                    if (userAvatar != null && (userAvatar!!.startsWith("data:image", ignoreCase = true) || (userAvatar!!.length > 200 && !userAvatar!!.startsWith("http", ignoreCase = true) && !userAvatar!!.startsWith("file:", ignoreCase = true)))) {
+                        try {
+                            val base64Data = if (userAvatar!!.contains(",")) userAvatar!!.substringAfter(",") else userAvatar!!
+                            val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } else null
+                }
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
@@ -268,7 +284,14 @@ class MainActivity : ComponentActivity() {
                                             .clickable { showAccountOverlay = true },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        if (!userAvatar.isNullOrEmpty()) {
+                                        if (resolvedAvatarBitmap != null) {
+                                            Image(
+                                                bitmap = resolvedAvatarBitmap.asImageBitmap(),
+                                                contentDescription = "Perfil",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else if (!userAvatar.isNullOrEmpty()) {
                                             AsyncImage(
                                                 model = userAvatar,
                                                 contentDescription = "Perfil",
@@ -449,28 +472,42 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                // Avatar grande con borde rojo
+                                // Avatar grande con borde limpio
                                 Box(
                                     modifier = Modifier
                                         .size(76.dp)
                                         .clip(CircleShape)
                                         .background(Color(0xFF1E1E1E))
-                                        .border(2.dp, Color(0xFFEF4444), CircleShape),
+                                        .border(1.5.dp, if (!isGuest) BrandEmerald.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.15f), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (!userAvatar.isNullOrEmpty()) {
+                                    if (resolvedAvatarBitmap != null) {
+                                        Image(
+                                            bitmap = resolvedAvatarBitmap.asImageBitmap(),
+                                            contentDescription = "Avatar",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else if (!userAvatar.isNullOrEmpty()) {
                                         AsyncImage(
                                             model = userAvatar,
                                             contentDescription = "Avatar",
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = ContentScale.Crop
                                         )
+                                    } else if (!userName.isNullOrEmpty()) {
+                                        Text(
+                                            text = userName!!.take(2).uppercase(),
+                                            color = Color.White,
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     } else {
                                         Icon(
                                             imageVector = Icons.Rounded.Person,
                                             contentDescription = "Avatar",
                                             tint = Color.White,
-                                            modifier = Modifier.size(50.dp)
+                                            modifier = Modifier.size(46.dp)
                                         )
                                     }
                                 }
