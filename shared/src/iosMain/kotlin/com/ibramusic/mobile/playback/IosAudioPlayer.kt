@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package com.ibramusic.mobile.playback
 
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +48,7 @@ data class IosPlaybackState(
 class IosAudioPlayer {
 
     private var player: AVPlayer? = null
+    private var activePlayerItem: AVPlayerItem? = null
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var tickerJob: Job? = null
 
@@ -118,6 +121,7 @@ class IosAudioPlayer {
     ) {
         val nsUrl = NSURL.URLWithString(url) ?: return
         val playerItem = AVPlayerItem(uRL = nsUrl)
+        activePlayerItem = playerItem
 
         NSNotificationCenter.defaultCenter.addObserverForName(
             name = AVPlayerItemDidPlayToEndTimeNotification,
@@ -216,7 +220,8 @@ class IosAudioPlayer {
                 val p = player
                 if (p != null) {
                     val currentSec = CMTimeGetSeconds(p.currentTime())
-                    val durSec = CMTimeGetSeconds(p.currentItem?.duration ?: p.currentTime())
+                    val item = activePlayerItem
+                    val durSec = if (item != null) CMTimeGetSeconds(item.duration()) else 0.0
                     val posMs = if (currentSec.isFinite()) (currentSec * 1000.0).toLong() else 0L
                     val durMs = if (durSec.isFinite() && durSec > 0.0) (durSec * 1000.0).toLong() else _state.value.durationMs
 
@@ -239,6 +244,7 @@ class IosAudioPlayer {
         stopTicker()
         player?.pause()
         player = null
+        activePlayerItem = null
     }
 }
 
