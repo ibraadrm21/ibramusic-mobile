@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Main serpentine path representing 'is' -->
+    <path
+        android:pathData="M80,320C120,240 180,340 240,260C280,200 240,120 280,80C320,40 380,80 400,120C420,160 380,220 320,240C260,260 200,340 260,400C320,460 400,420 440,360"
+        android:strokeWidth="42"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Stylized dot for the 'i' -->
+    <path
+        android:pathData="M260,50C285,30 305,50 285,80C265,110 245,90 260,50Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Central Play Button -->
+    <path
+        android:pathData="M245,235L295,265L245,295V235Z"
+        android:fillColor="#FFFFFF" />
+</vector>
+
