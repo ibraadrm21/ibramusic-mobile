@@ -35,6 +35,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build/ios \
+            FRAMEWORK_SEARCH_PATHS="$(pwd)/shared/build/bin/iosArm64/releaseFramework \$(inherited)" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -44,6 +45,8 @@ jobs:
         run: |
           mkdir -p build/Payload
           cp -r build/ios/Build/Products/Release-iphoneos/iosApp.app build/Payload/
+          mkdir -p build/Payload/iosApp.app/Frameworks
+          cp -r shared/build/bin/iosArm64/releaseFramework/Shared.framework build/Payload/iosApp.app/Frameworks/
           cd build && zip -r IbraMusic-iOS.ipa Payload/
           cd ..
 
